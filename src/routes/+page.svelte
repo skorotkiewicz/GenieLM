@@ -776,7 +776,8 @@
 		width: 100%;
 		min-height: 50px;
 		max-height: 150px;
-		resize: vertical;
+		field-sizing: content;
+		resize: none;
 		padding: 14px 54px 12px 20px;
 		border: 1px solid #bad2cf;
 		border-radius: 25px;
