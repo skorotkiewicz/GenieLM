@@ -14,6 +14,7 @@ A small SvelteKit chat client for OpenAI-compatible models and ChatGPT OAuth. Co
 - Saves conversations locally and gives each one an LLM-generated title
 - Renders Markdown, highlighted code, copy buttons, tables, and KaTeX
 - Shares conversations as Markdown
+- Copies individual messages or reads them with the browser's system voice
 - Works on desktop and mobile
 
 <table>

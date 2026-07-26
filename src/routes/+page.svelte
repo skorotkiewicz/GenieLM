@@ -30,6 +30,9 @@
 	let providerOpen = $state(false);
 	let accountOpen = $state(false);
 	let shareLabel = $state('Share');
+	let copiedMessage = $state<string | null>(null);
+	let speakingMessage = $state<string | null>(null);
+	let speechSupported = $state(false);
 	let oauthSignedIn = $state(false);
 	let authMessage = $state('');
 	let provider = $state<ProviderSettings>({
@@ -62,6 +65,7 @@
 	onMount(() => {
 		let mounted = true;
 		sidebarOpen = !window.matchMedia('(max-width: 760px)').matches;
+		speechSupported = 'speechSynthesis' in window;
 
 		const restoreFromUrl = () => {
 			const id = conversationIdFromUrl();
@@ -113,6 +117,7 @@
 		void initialize();
 		return () => {
 			mounted = false;
+			window.speechSynthesis?.cancel();
 			window.removeEventListener('popstate', restoreFromUrl);
 		};
 	});
@@ -164,6 +169,7 @@
 	}
 
 	function newChat() {
+		stopSpeaking();
 		activeId = null;
 		draft = '';
 		setConversationUrl(null);
@@ -171,6 +177,7 @@
 	}
 
 	function selectChat(id: string) {
+		stopSpeaking();
 		activeId = id;
 		setConversationUrl(id);
 		closeSidebarOnMobile();
@@ -180,6 +187,7 @@
 		if (!confirm(`Delete "${chat.title}"?`)) return;
 		chats = chats.filter((item) => item.id !== chat.id);
 		if (activeId === chat.id) {
+			stopSpeaking();
 			abortController?.abort();
 			activeId = null;
 			draft = '';
@@ -215,26 +223,60 @@
 		}
 	}
 
+	async function copyText(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			return true;
+		} catch {
+			const textarea = document.createElement('textarea');
+			textarea.value = text;
+			textarea.style.position = 'fixed';
+			textarea.style.opacity = '0';
+			document.body.append(textarea);
+			textarea.select();
+			const copied = document.execCommand('copy');
+			textarea.remove();
+			return copied;
+		}
+	}
+
+	async function copyMessage(content: string, id: string) {
+		if (!(await copyText(content))) return;
+		copiedMessage = id;
+		setTimeout(() => {
+			if (copiedMessage === id) copiedMessage = null;
+		}, 1500);
+	}
+
+	function stopSpeaking() {
+		if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+		speakingMessage = null;
+	}
+
+	function speakMessage(content: string, id: string) {
+		if (!speechSupported) return;
+		if (speakingMessage === id) {
+			stopSpeaking();
+			return;
+		}
+
+		stopSpeaking();
+		const document = new DOMParser().parseFromString(renderMarkdown(content), 'text/html');
+		document.querySelectorAll('.copy-code').forEach((button) => button.remove());
+		const utterance = new SpeechSynthesisUtterance(document.body.textContent?.trim() || content);
+		utterance.onend = utterance.onerror = () => {
+			if (speakingMessage === id) speakingMessage = null;
+		};
+		speakingMessage = id;
+		window.speechSynthesis.speak(utterance);
+	}
+
 	function codeCopy(node: HTMLElement) {
 		async function handleClick(event: MouseEvent) {
 			if (!(event.target instanceof Element)) return;
 			const button = event.target.closest<HTMLButtonElement>('.copy-code');
 			const code = button?.parentElement?.querySelector('code')?.textContent;
-			if (!button || code == null) return;
-
-			try {
-				await navigator.clipboard.writeText(code);
-			} catch {
-				const textarea = document.createElement('textarea');
-				textarea.value = code;
-				textarea.style.position = 'fixed';
-				textarea.style.opacity = '0';
-				document.body.append(textarea);
-				textarea.select();
-				const copied = document.execCommand('copy');
-				textarea.remove();
-				if (!copied) return;
-			}
+			if (!button || code == null || !(await copyText(code))) return;
 
 			button.textContent = 'Copied';
 			setTimeout(() => {
@@ -389,6 +431,45 @@
 	<title>GenieLM</title>
 	<meta name="description" content="Chat with GenieLM" />
 </svelte:head>
+
+{#snippet messageActions(message: Message, index: number)}
+	{@const id = `${activeId}-${index}`}
+	<div class="message-actions">
+		<button
+			aria-label={copiedMessage === id ? 'Message copied' : 'Copy message'}
+			title={copiedMessage === id ? 'Copied' : 'Copy message'}
+			onclick={() => copyMessage(message.content, id)}
+		>
+			{#if copiedMessage === id}
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
+			{:else}
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><rect x="8" y="8" width="12" height="12" rx="2" /><path
+						d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"
+					/></svg
+				>
+			{/if}
+		</button>
+		<button
+			aria-label={speakingMessage === id ? 'Stop speaking' : 'Speak message'}
+			aria-pressed={speakingMessage === id}
+			title={speechSupported ? 'Use system voice' : 'Speech is not supported by this browser'}
+			disabled={!speechSupported}
+			onclick={() => speakMessage(message.content, id)}
+		>
+			{#if speakingMessage === id}
+				<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" /></svg
+				>
+			{:else}
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><path d="M11 5 6 9H3v6h3l5 4Z" /><path
+						d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"
+					/></svg
+				>
+			{/if}
+		</button>
+	</div>
+{/snippet}
 
 <div class:sidebar-collapsed={!sidebarOpen} class="app-shell">
 	<aside class="sidebar">
@@ -619,25 +700,33 @@
 
 				{#each activeChat?.messages ?? [] as message, index (`${activeId}-${index}`)}
 					{#if message.role === 'user'}
-						<div class="user-row"><div class="user-message">{message.content}</div></div>
+						<div class="user-row">
+							<div class="user-content">
+								<div class="user-message">{message.content}</div>
+								{@render messageActions(message, index)}
+							</div>
+						</div>
 					{:else}
 						<div class="assistant-message">
 							<BotIcon />
-							{#if loading && index === activeChat!.messages.length - 1 && !message.content}
-								<div class="thinking" role="status">
-									Thinking<span></span><span></span><span></span>
-								</div>
-							{:else}
-								<div
-									class:streaming={loading && index === activeChat!.messages.length - 1}
-									class="answer"
-									use:codeCopy
-								>
-									<!-- markdown-it escapes raw HTML; covered by markdown.test.ts -->
-									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-									{@html renderMarkdown(message.content)}
-								</div>
-							{/if}
+							<div class="assistant-content">
+								{#if loading && index === activeChat!.messages.length - 1 && !message.content}
+									<div class="thinking" role="status">
+										Thinking<span></span><span></span><span></span>
+									</div>
+								{:else}
+									<div
+										class:streaming={loading && index === activeChat!.messages.length - 1}
+										class="answer"
+										use:codeCopy
+									>
+										<!-- markdown-it escapes raw HTML; covered by markdown.test.ts -->
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+										{@html renderMarkdown(message.content)}
+									</div>
+									{@render messageActions(message, index)}
+								{/if}
+							</div>
 						</div>
 					{/if}
 				{/each}
@@ -1109,8 +1198,14 @@
 		justify-content: flex-end;
 		margin: 0 0 39px;
 	}
-	.user-message {
+	.user-content {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
 		max-width: 70%;
+		min-width: 0;
+	}
+	.user-message {
 		padding: 15px 29px;
 		border-radius: 28px;
 		background: #b7e4e1;
@@ -1121,6 +1216,58 @@
 		grid-template-columns: 54px 1fr;
 		align-items: start;
 		margin-bottom: 38px;
+	}
+	.assistant-content {
+		min-width: 0;
+	}
+	.message-actions {
+		display: flex;
+		gap: 3px;
+		margin-top: 6px;
+		opacity: 0;
+		transition: opacity 0.15s ease;
+	}
+	.user-content:hover .message-actions,
+	.user-content:focus-within .message-actions,
+	.assistant-content:hover .message-actions,
+	.assistant-content:focus-within .message-actions {
+		opacity: 0.7;
+	}
+	.message-actions button {
+		display: grid;
+		place-items: center;
+		width: 27px;
+		height: 27px;
+		padding: 0;
+		border: 0;
+		border-radius: 6px;
+		background: transparent;
+		cursor: pointer;
+	}
+	.message-actions button:hover,
+	.message-actions button[aria-pressed='true'] {
+		background: #dcecea;
+		opacity: 1;
+	}
+	.message-actions button:disabled {
+		cursor: default;
+		opacity: 0.35;
+	}
+	.message-actions svg {
+		width: 16px;
+		height: 16px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.8;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.message-actions svg rect {
+		fill: none;
+	}
+	.message-actions button[aria-pressed='true'] svg rect {
+		fill: currentColor;
+		stroke: none;
 	}
 	.answer {
 		min-width: 0;
@@ -1361,7 +1508,8 @@
 	}
 
 	@media (hover: none) {
-		.remove-chat {
+		.remove-chat,
+		.message-actions {
 			opacity: 0.7;
 		}
 	}
@@ -1407,7 +1555,7 @@
 		.assistant-message {
 			grid-template-columns: 48px 1fr;
 		}
-		.user-message {
+		.user-content {
 			max-width: 88%;
 		}
 		.share-button {
