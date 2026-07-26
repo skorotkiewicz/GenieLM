@@ -13,6 +13,7 @@
 	let loaded = $state(false);
 	let sidebarOpen = $state(true);
 	let conversation: HTMLDivElement;
+	let abortController: AbortController | null = null;
 
 	const activeChat = $derived(chats.find((chat) => chat.id === activeId));
 	const historyGroups = $derived.by(() => {
@@ -82,6 +83,10 @@
 		else await navigator.clipboard.writeText(text);
 	}
 
+	function stopResponse() {
+		abortController?.abort();
+	}
+
 	async function sendMessage(event: SubmitEvent) {
 		event.preventDefault();
 		const content = draft.trim();
@@ -100,11 +105,14 @@
 		const answerIndex = chat.messages.length - 1;
 		draft = '';
 		loading = true;
+		const controller = new AbortController();
+		abortController = controller;
 		await scrollToBottom();
 
 		try {
 			const response = await fetch('/api/chat', {
 				method: 'POST',
+				signal: controller.signal,
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
 					messages: requestMessages.map((message, index) => ({
@@ -126,9 +134,16 @@
 			}
 			if (!chat.messages[answerIndex].content) throw new Error('Empty response');
 		} catch {
-			chat.messages[answerIndex].content =
-				'Sorry, I could not reach the local model. Please try again.';
+			if (controller.signal.aborted) {
+				if (!chat.messages[answerIndex].content) {
+					chat.messages[answerIndex].content = 'Response stopped.';
+				}
+			} else {
+				chat.messages[answerIndex].content =
+					'Sorry, I could not reach the local model. Please try again.';
+			}
 		} finally {
+			if (abortController === controller) abortController = null;
 			loading = false;
 			await scrollToBottom();
 		}
@@ -212,13 +227,20 @@
 					{:else}
 						<div class="assistant-message">
 							<div class="bot-icon"><span></span></div>
-							<div class="answer">
-								<!-- markdown-it escapes raw HTML; covered by markdown.test.ts -->
-								<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-								{@html renderMarkdown(message.content)}
-								{#if loading && index === activeChat!.messages.length - 1}<i class="cursor"
-									></i>{/if}
-							</div>
+							{#if loading && index === activeChat!.messages.length - 1 && !message.content}
+								<div class="thinking" role="status">
+									Thinking<span></span><span></span><span></span>
+								</div>
+							{:else}
+								<div
+									class:streaming={loading && index === activeChat!.messages.length - 1}
+									class="answer"
+								>
+									<!-- markdown-it escapes raw HTML; covered by markdown.test.ts -->
+									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+									{@html renderMarkdown(message.content)}
+								</div>
+							{/if}
 						</div>
 					{/if}
 				{/each}
@@ -236,11 +258,27 @@
 								event.currentTarget.form?.requestSubmit();
 							}
 						}}></textarea>
-					<button type="submit" aria-label="Send message" disabled={!draft.trim() || loading}>
-						<svg viewBox="0 0 24 24" aria-hidden="true"
-							><path d="M12 19V5" /><path d="m6 11 6-6 6 6" /></svg
-						>
-					</button>
+					{#if loading}
+						<button type="button" aria-label="Stop responding" onclick={stopResponse}>
+							<svg viewBox="0 0 24 24" aria-hidden="true"
+								><rect
+									x="8"
+									y="8"
+									width="8"
+									height="8"
+									rx="1"
+									fill="currentColor"
+									stroke="none"
+								/></svg
+							>
+						</button>
+					{:else}
+						<button type="submit" aria-label="Send message" disabled={!draft.trim()}>
+							<svg viewBox="0 0 24 24" aria-hidden="true"
+								><path d="M12 19V5" /><path d="m6 11 6-6 6 6" /></svg
+							>
+						</button>
+					{/if}
 				</form>
 			</div>
 		</div>
@@ -571,18 +609,46 @@
 			5px 12px 0 -4px #f4f7f5,
 			7px 12px 0 -5px #377083;
 	}
-	.cursor {
+	.answer.streaming :global(:last-child)::after {
+		content: '';
 		display: inline-block;
 		width: 1px;
-		height: 12px;
-		margin-left: 2px;
+		height: 1em;
+		margin-left: 3px;
 		background: #155b6d;
 		animation: blink 0.8s steps(1) infinite;
 		vertical-align: -2px;
 	}
+	.thinking {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding-top: 8px;
+		font-size: 13px;
+		font-weight: 600;
+	}
+	.thinking span {
+		width: 4px;
+		height: 4px;
+		border-radius: 50%;
+		background: currentColor;
+		animation: think 1.2s ease-in-out infinite;
+	}
+	.thinking span:nth-child(2) {
+		animation-delay: 0.15s;
+	}
+	.thinking span:nth-child(3) {
+		animation-delay: 0.3s;
+	}
 	@keyframes blink {
 		50% {
 			opacity: 0;
+		}
+	}
+	@keyframes think {
+		50% {
+			opacity: 0.25;
+			transform: translateY(-2px);
 		}
 	}
 

@@ -34,6 +34,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const result = streamText({
 			model: provider('GenieLM'),
+			abortSignal: request.signal,
 			system: 'You are GenieLM, a helpful and concise assistant.',
 			messages: await convertToModelMessages(messages),
 			stopSequences: ['<|im_end|>', '<|eot_id|>', '<|end|>', '</s>']
