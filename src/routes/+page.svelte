@@ -118,6 +118,37 @@
 		else await navigator.clipboard.writeText(text);
 	}
 
+	function codeCopy(node: HTMLElement) {
+		async function handleClick(event: MouseEvent) {
+			if (!(event.target instanceof Element)) return;
+			const button = event.target.closest<HTMLButtonElement>('.copy-code');
+			const code = button?.parentElement?.querySelector('code')?.textContent;
+			if (!button || code == null) return;
+
+			try {
+				await navigator.clipboard.writeText(code);
+			} catch {
+				const textarea = document.createElement('textarea');
+				textarea.value = code;
+				textarea.style.position = 'fixed';
+				textarea.style.opacity = '0';
+				document.body.append(textarea);
+				textarea.select();
+				const copied = document.execCommand('copy');
+				textarea.remove();
+				if (!copied) return;
+			}
+
+			button.textContent = 'Copied';
+			setTimeout(() => {
+				if (button.isConnected) button.textContent = 'Copy';
+			}, 1500);
+		}
+
+		node.addEventListener('click', handleClick);
+		return { destroy: () => node.removeEventListener('click', handleClick) };
+	}
+
 	function stopResponse() {
 		abortController?.abort();
 	}
@@ -278,6 +309,7 @@
 								<div
 									class:streaming={loading && index === activeChat!.messages.length - 1}
 									class="answer"
+									use:codeCopy
 								>
 									<!-- markdown-it escapes raw HTML; covered by markdown.test.ts -->
 									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -566,14 +598,33 @@
 		color: #39717c;
 	}
 	.answer :global(pre) {
+		position: relative;
 		overflow-x: auto;
 		margin: 12px 0;
-		padding: 14px;
+		padding: 42px 14px 14px;
 		border-radius: 8px;
 		background: #163d48;
 		color: #e6f5f3;
 		font-size: 12px;
 		line-height: 1.5;
+	}
+	.answer :global(.copy-code) {
+		position: absolute;
+		top: 9px;
+		right: 9px;
+		padding: 4px 9px;
+		border: 1px solid rgb(230 245 243 / 25%);
+		border-radius: 5px;
+		background: rgb(255 255 255 / 8%);
+		color: #d9eeeb;
+		font-family: 'Avenir Next', 'Segoe UI', Arial, sans-serif;
+		font-size: 11px;
+		cursor: pointer;
+	}
+	.answer :global(.copy-code:hover),
+	.answer :global(.copy-code:focus-visible) {
+		background: rgb(255 255 255 / 16%);
+		outline: none;
 	}
 	.answer :global(:not(pre) > code) {
 		padding: 2px 5px;
