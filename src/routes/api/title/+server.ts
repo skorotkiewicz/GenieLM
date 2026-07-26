@@ -1,13 +1,14 @@
-import { provider } from '$lib/server/provider';
+import { modelForRequest } from '$lib/server/provider';
 import { generateText } from 'ai';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
 	let prompt: unknown;
+	let provider: unknown;
 
 	try {
-		({ prompt } = await request.json());
+		({ prompt, provider } = await request.json());
 	} catch {
 		return json({ error: 'Invalid request body.' }, { status: 400 });
 	}
@@ -16,9 +17,16 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ error: 'Prompt must be a non-empty string.' }, { status: 400 });
 	}
 
+	let model;
+	try {
+		model = modelForRequest(request, provider);
+	} catch {
+		return json({ error: 'Invalid or unsigned provider configuration.' }, { status: 400 });
+	}
+
 	try {
 		const { text } = await generateText({
-			model: provider('GenieLM'),
+			model,
 			abortSignal: request.signal,
 			system:
 				'Create a concise 3-7 word sidebar title summarizing the user request. Return only the title, without quotes, punctuation, or Markdown.',
@@ -38,6 +46,6 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (!title) throw new Error('Empty title');
 		return json({ title });
 	} catch {
-		return json({ error: 'The local model could not create a title.' }, { status: 502 });
+		return json({ error: 'The selected provider could not create a title.' }, { status: 502 });
 	}
 };

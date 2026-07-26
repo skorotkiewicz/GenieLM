@@ -1,11 +1,25 @@
 <script lang="ts">
 	import BotIcon from '$lib/BotIcon.svelte';
 	import { renderMarkdown } from '$lib/markdown';
+	import {
+		completeLogin,
+		getSession,
+		logout as logoutOpenAI,
+		openaiAuthHeaders,
+		startLogin
+	} from '@openai-oauth/web';
 	import { onMount, tick } from 'svelte';
 
 	type Message = { role: 'user' | 'assistant'; content: string };
 	type Chat = { id: string; title: string; createdAt: number; messages: Message[] };
 	type HistoryGroup = { label: string; chats: Chat[] };
+	type ProviderSettings = {
+		type: 'compatible' | 'oauth';
+		baseURL: string;
+		compatibleModel: string;
+		oauthModel: string;
+		apiKey: string;
+	};
 
 	let chats = $state<Chat[]>([]);
 	let activeId = $state<string | null>(null);
@@ -13,10 +27,26 @@
 	let loading = $state(false);
 	let loaded = $state(false);
 	let sidebarOpen = $state(true);
+	let providerOpen = $state(false);
+	let oauthSignedIn = $state(false);
+	let authMessage = $state('');
+	let extensionUrl = $state('');
+	let provider = $state<ProviderSettings>({
+		type: 'compatible',
+		baseURL: '',
+		compatibleModel: '',
+		oauthModel: 'gpt-5.4-mini',
+		apiKey: ''
+	});
 	let conversation: HTMLDivElement;
 	let abortController: AbortController | null = null;
 
 	const activeChat = $derived(chats.find((chat) => chat.id === activeId));
+	const providerReady = $derived(
+		provider.type === 'oauth'
+			? oauthSignedIn && !!provider.oauthModel.trim()
+			: !!provider.baseURL.trim() && !!provider.compatibleModel.trim()
+	);
 	const historyGroups = $derived.by(() => {
 		const groups: HistoryGroup[] = [];
 		for (const chat of chats) {
@@ -29,37 +59,77 @@
 	});
 
 	onMount(() => {
+		let mounted = true;
 		sidebarOpen = !window.matchMedia('(max-width: 760px)').matches;
-
-		try {
-			chats = JSON.parse(localStorage.getItem('genielm-chats') ?? '[]');
-			const requestedId = conversationIdFromUrl();
-			const savedId = localStorage.getItem('genielm-active-chat');
-			activeId = chats.some((chat) => chat.id === requestedId)
-				? requestedId
-				: requestedId
-					? null
-					: chats.some((chat) => chat.id === savedId)
-						? savedId
-						: null;
-			if (activeId && !requestedId) setConversationUrl(activeId, true);
-		} catch {
-			chats = [];
-			activeId = null;
-		}
 
 		const restoreFromUrl = () => {
 			const id = conversationIdFromUrl();
 			activeId = chats.some((chat) => chat.id === id) ? id : null;
 		};
-		window.addEventListener('popstate', restoreFromUrl);
-		loaded = true;
-		return () => window.removeEventListener('popstate', restoreFromUrl);
+
+		async function initialize() {
+			try {
+				const saved = JSON.parse(localStorage.getItem('genielm-provider') ?? '{}');
+				if (saved.type === 'compatible' || saved.type === 'oauth') provider.type = saved.type;
+				if (typeof saved.baseURL === 'string') provider.baseURL = saved.baseURL;
+				if (typeof saved.compatibleModel === 'string')
+					provider.compatibleModel = saved.compatibleModel;
+				if (typeof saved.oauthModel === 'string') provider.oauthModel = saved.oauthModel;
+				provider.apiKey = sessionStorage.getItem('genielm-api-key') ?? '';
+			} catch {
+				localStorage.removeItem('genielm-provider');
+			}
+
+			try {
+				const session = (await completeLogin()) ?? (await getSession());
+				oauthSignedIn = !!session;
+			} catch (error) {
+				authMessage = error instanceof Error ? error.message : 'ChatGPT sign-in failed.';
+			}
+
+			if (!mounted) return;
+			try {
+				chats = JSON.parse(localStorage.getItem('genielm-chats') ?? '[]');
+				const requestedId = conversationIdFromUrl();
+				const savedId = localStorage.getItem('genielm-active-chat');
+				activeId = chats.some((chat) => chat.id === requestedId)
+					? requestedId
+					: requestedId
+						? null
+						: chats.some((chat) => chat.id === savedId)
+							? savedId
+							: null;
+				if (activeId && !requestedId) setConversationUrl(activeId, true);
+			} catch {
+				chats = [];
+				activeId = null;
+			}
+
+			window.addEventListener('popstate', restoreFromUrl);
+			loaded = true;
+		}
+
+		void initialize();
+		return () => {
+			mounted = false;
+			window.removeEventListener('popstate', restoreFromUrl);
+		};
 	});
 
 	$effect(() => {
 		if (!loaded) return;
 		localStorage.setItem('genielm-chats', JSON.stringify(chats));
+		localStorage.setItem(
+			'genielm-provider',
+			JSON.stringify({
+				type: provider.type,
+				baseURL: provider.baseURL,
+				compatibleModel: provider.compatibleModel,
+				oauthModel: provider.oauthModel
+			})
+		);
+		if (provider.apiKey) sessionStorage.setItem('genielm-api-key', provider.apiKey);
+		else sessionStorage.removeItem('genielm-api-key');
 		if (activeId) localStorage.setItem('genielm-active-chat', activeId);
 		else localStorage.removeItem('genielm-active-chat');
 	});
@@ -150,12 +220,53 @@
 		return { destroy: () => node.removeEventListener('click', handleClick) };
 	}
 
-	async function summarizeTitle(chat: Chat, prompt: string) {
+	function currentProvider() {
+		return provider.type === 'oauth'
+			? { type: 'oauth' as const, model: provider.oauthModel.trim() }
+			: {
+					type: 'compatible' as const,
+					baseURL: provider.baseURL.trim(),
+					model: provider.compatibleModel.trim(),
+					apiKey: provider.apiKey
+				};
+	}
+
+	async function requestHeaders() {
+		const headers = { 'content-type': 'application/json' };
+		return provider.type === 'oauth' ? openaiAuthHeaders({ headers }) : headers;
+	}
+
+	async function signInWithChatGPT() {
+		authMessage = '';
+		extensionUrl = '';
+		try {
+			const result = await startLogin();
+			if (result.status === 'needs-extension') {
+				extensionUrl = result.installUrl;
+				authMessage = 'Install the Sign in with ChatGPT extension, then try again.';
+			}
+		} catch (error) {
+			authMessage = error instanceof Error ? error.message : 'ChatGPT sign-in failed.';
+		}
+	}
+
+	async function signOutOfChatGPT() {
+		await logoutOpenAI();
+		oauthSignedIn = false;
+		authMessage = '';
+	}
+
+	async function summarizeTitle(
+		chat: Chat,
+		prompt: string,
+		selectedProvider: ReturnType<typeof currentProvider>,
+		headers: Record<string, string>
+	) {
 		try {
 			const response = await fetch('/api/title', {
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ prompt })
+				headers,
+				body: JSON.stringify({ prompt, provider: selectedProvider })
 			});
 			if (!response.ok) return;
 			const { title } = await response.json();
@@ -173,6 +284,20 @@
 		event.preventDefault();
 		const content = draft.trim();
 		if (!content || loading) return;
+		if (!providerReady) {
+			providerOpen = true;
+			return;
+		}
+
+		let headers: Record<string, string>;
+		try {
+			headers = await requestHeaders();
+		} catch (error) {
+			authMessage = error instanceof Error ? error.message : 'Provider authentication failed.';
+			providerOpen = true;
+			return;
+		}
+		const selectedProvider = currentProvider();
 
 		let chat = activeChat;
 		if (!chat) {
@@ -181,7 +306,7 @@
 			activeId = id;
 			setConversationUrl(id, true);
 			chat = chats[0];
-			void summarizeTitle(chat, content);
+			void summarizeTitle(chat, content, selectedProvider, headers);
 		}
 
 		const requestMessages = [...chat.messages, { role: 'user', content } satisfies Message];
@@ -197,8 +322,9 @@
 			const response = await fetch('/api/chat', {
 				method: 'POST',
 				signal: controller.signal,
-				headers: { 'content-type': 'application/json' },
+				headers,
 				body: JSON.stringify({
+					provider: selectedProvider,
 					messages: requestMessages.map((message, index) => ({
 						id: `${chat.id}-${index}`,
 						role: message.role,
@@ -224,7 +350,7 @@
 				}
 			} else {
 				chat.messages[answerIndex].content =
-					'Sorry, I could not reach the local model. Please try again.';
+					'Sorry, I could not reach the selected model. Please check your provider settings.';
 			}
 		} finally {
 			if (abortController === controller) abortController = null;
@@ -281,14 +407,101 @@
 
 	<main>
 		<header>
-			<div class="brand">
+			<div class="header-start">
 				{#if !sidebarOpen}<button
 						class="open-sidebar"
 						aria-label="Open sidebar"
 						onclick={() => (sidebarOpen = true)}>☰</button
 					>{/if}
-				<span>GenieLM</span>
-				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+				<div class="provider-control">
+					{#if providerOpen}
+						<button
+							class="provider-backdrop"
+							aria-label="Close provider settings"
+							onclick={() => (providerOpen = false)}
+						></button>
+					{/if}
+					<button
+						class="brand"
+						aria-expanded={providerOpen}
+						aria-haspopup="dialog"
+						onclick={() => (providerOpen = !providerOpen)}
+					>
+						<span>GenieLM</span>
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+					</button>
+					{#if providerOpen}
+						<div class="provider-menu" role="dialog" aria-label="Model provider settings">
+							<div class="provider-tabs" role="tablist" aria-label="Provider">
+								<button
+									class:active={provider.type === 'compatible'}
+									role="tab"
+									aria-selected={provider.type === 'compatible'}
+									onclick={() => (provider.type = 'compatible')}>Compatible API</button
+								>
+								<button
+									class:active={provider.type === 'oauth'}
+									role="tab"
+									aria-selected={provider.type === 'oauth'}
+									onclick={() => (provider.type = 'oauth')}>ChatGPT</button
+								>
+							</div>
+
+							{#if provider.type === 'compatible'}
+								<label>
+									<span>Base URL</span>
+									<input
+										type="url"
+										bind:value={provider.baseURL}
+										placeholder="http://localhost:8888/v1"
+									/>
+								</label>
+								<label>
+									<span>Model</span>
+									<input bind:value={provider.compatibleModel} placeholder="Model name" />
+								</label>
+								<label>
+									<span>API key <small>(optional)</small></span>
+									<input
+										type="password"
+										bind:value={provider.apiKey}
+										placeholder="Stored for this tab only"
+										autocomplete="off"
+									/>
+								</label>
+								<button
+									class="provider-primary"
+									disabled={!providerReady}
+									onclick={() => (providerOpen = false)}>Use this API</button
+								>
+							{:else}
+								<div class:signed-in={oauthSignedIn} class="oauth-status">
+									<span></span>{oauthSignedIn ? 'Connected to ChatGPT' : 'Not connected'}
+								</div>
+								<label>
+									<span>Model</span>
+									<input bind:value={provider.oauthModel} placeholder="gpt-5.4-mini" />
+								</label>
+								{#if oauthSignedIn}
+									<button class="provider-primary" onclick={() => (providerOpen = false)}
+										>Use ChatGPT</button
+									>
+									<button class="provider-secondary" onclick={signOutOfChatGPT}>Sign out</button>
+								{:else}
+									<button class="provider-primary" onclick={signInWithChatGPT}
+										>Sign in with ChatGPT</button
+									>
+								{/if}
+								{#if authMessage}<p class="auth-message" role="status">{authMessage}</p>{/if}
+								{#if extensionUrl}
+									<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+									<a href={extensionUrl} target="_blank" rel="noreferrer">Install extension</a>
+								{/if}
+								<p class="provider-note">Credentials are encrypted and stored in this browser.</p>
+							{/if}
+						</div>
+					{/if}
+				</div>
 			</div>
 			<div class="account-actions">
 				<button class="share-button" disabled={!activeChat} onclick={shareChat}>
@@ -382,6 +595,7 @@
 		box-sizing: border-box;
 	}
 	button,
+	input,
 	textarea {
 		font: inherit;
 	}
@@ -467,29 +681,176 @@
 		overflow: hidden;
 	}
 	header {
+		position: relative;
+		z-index: 20;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		height: 90px;
 		padding: 0 38px 0 30px;
 	}
+	.header-start,
 	.brand {
 		display: flex;
 		align-items: center;
+	}
+	.provider-control {
+		position: relative;
+	}
+	.brand {
+		position: relative;
+		z-index: 43;
 		gap: 7px;
+		padding: 0;
+		border: 0;
+		background: none;
 		font-size: 26px;
 		font-weight: 500;
+		cursor: pointer;
 	}
 	.brand svg {
 		width: 16px;
 		fill: none;
 		stroke: currentColor;
 		stroke-width: 1.7;
+		transition: transform 0.15s ease;
+	}
+	.brand[aria-expanded='true'] svg {
+		transform: rotate(180deg);
 	}
 	.open-sidebar {
-		margin-right: 8px;
+		margin-right: 15px;
 		padding: 0;
 		font-size: 20px;
+	}
+	.provider-backdrop {
+		position: fixed;
+		z-index: 40;
+		inset: 0;
+		border: 0;
+		background: transparent;
+	}
+	.provider-menu {
+		position: absolute;
+		top: 43px;
+		left: 0;
+		z-index: 42;
+		width: min(350px, calc(100vw - 32px));
+		padding: 18px;
+		border: 1px solid #bfd8d5;
+		border-radius: 14px;
+		background: #f9fbfa;
+		box-shadow: 0 14px 40px rgb(21 91 109 / 16%);
+		color: #155b6d;
+	}
+	.provider-tabs {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 4px;
+		margin-bottom: 17px;
+		padding: 3px;
+		border-radius: 9px;
+		background: #e3efed;
+	}
+	.provider-tabs button,
+	.provider-primary,
+	.provider-secondary {
+		border: 0;
+		border-radius: 7px;
+		cursor: pointer;
+	}
+	.provider-tabs button {
+		padding: 8px;
+		background: transparent;
+		font-size: 12px;
+		font-weight: 650;
+	}
+	.provider-tabs button.active {
+		background: white;
+		box-shadow: 0 1px 4px rgb(21 91 109 / 12%);
+	}
+	.provider-menu label {
+		display: block;
+		margin-bottom: 13px;
+		font-size: 12px;
+		font-weight: 650;
+	}
+	.provider-menu label span {
+		display: block;
+		margin-bottom: 5px;
+	}
+	.provider-menu small {
+		font-weight: 400;
+		opacity: 0.7;
+	}
+	.provider-menu input {
+		width: 100%;
+		padding: 9px 10px;
+		border: 1px solid #bfd8d5;
+		border-radius: 8px;
+		outline: none;
+		background: white;
+		color: #174f5e;
+		font-size: 12px;
+	}
+	.provider-menu input:focus {
+		border-color: #5da5a3;
+		box-shadow: 0 0 0 2px rgb(93 165 163 / 15%);
+	}
+	.provider-primary,
+	.provider-secondary {
+		width: 100%;
+		padding: 10px;
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.provider-primary {
+		background: #0da8aa;
+		color: white;
+	}
+	.provider-primary:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+	.provider-secondary {
+		margin-top: 7px;
+		background: #e3efed;
+	}
+	.oauth-status {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		margin-bottom: 15px;
+		font-size: 12px;
+		font-weight: 650;
+	}
+	.oauth-status span {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #9aa8a7;
+	}
+	.oauth-status.signed-in span {
+		background: #19a56f;
+	}
+	.auth-message,
+	.provider-note {
+		margin: 10px 0 0;
+		font-size: 11px;
+		line-height: 1.4;
+	}
+	.auth-message {
+		color: #8d4a30;
+	}
+	.provider-note {
+		opacity: 0.72;
+	}
+	.provider-menu a {
+		display: inline-block;
+		margin-top: 7px;
+		color: inherit;
+		font-size: 12px;
+		font-weight: 700;
 	}
 	.account-actions {
 		display: flex;

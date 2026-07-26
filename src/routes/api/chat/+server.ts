@@ -1,13 +1,14 @@
-import { provider } from '$lib/server/provider';
+import { modelForRequest } from '$lib/server/provider';
 import { convertToModelMessages, streamText, type UIMessage } from 'ai';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
 	let messages: UIMessage[];
+	let provider: unknown;
 
 	try {
-		({ messages } = await request.json());
+		({ messages, provider } = await request.json());
 	} catch {
 		return json({ error: 'Invalid request body.' }, { status: 400 });
 	}
@@ -26,9 +27,16 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ error: 'Messages must be a non-empty chat history.' }, { status: 400 });
 	}
 
+	let model;
+	try {
+		model = modelForRequest(request, provider);
+	} catch {
+		return json({ error: 'Invalid or unsigned provider configuration.' }, { status: 400 });
+	}
+
 	try {
 		const result = streamText({
-			model: provider('GenieLM'),
+			model,
 			abortSignal: request.signal,
 			system: 'You are GenieLM, a helpful and concise assistant.',
 			messages: await convertToModelMessages(messages),
@@ -37,6 +45,6 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		return result.toTextStreamResponse();
 	} catch {
-		return json({ error: 'The local model is unavailable.' }, { status: 502 });
+		return json({ error: 'The selected provider is unavailable.' }, { status: 502 });
 	}
 };
