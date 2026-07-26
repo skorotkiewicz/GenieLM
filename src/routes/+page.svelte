@@ -28,6 +28,8 @@
 	});
 
 	onMount(() => {
+		sidebarOpen = !window.matchMedia('(max-width: 760px)').matches;
+
 		try {
 			chats = JSON.parse(localStorage.getItem('genielm-chats') ?? '[]');
 			const requestedId = conversationIdFromUrl();
@@ -85,15 +87,21 @@
 		else history.pushState({}, '', url);
 	}
 
+	function closeSidebarOnMobile() {
+		if (window.matchMedia('(max-width: 760px)').matches) sidebarOpen = false;
+	}
+
 	function newChat() {
 		activeId = null;
 		draft = '';
 		setConversationUrl(null);
+		closeSidebarOnMobile();
 	}
 
 	function selectChat(id: string) {
 		activeId = id;
 		setConversationUrl(id);
+		closeSidebarOnMobile();
 	}
 
 	async function scrollToBottom() {
@@ -215,6 +223,13 @@
 			{/each}
 		</nav>
 	</aside>
+	{#if sidebarOpen}
+		<button
+			class="sidebar-backdrop"
+			aria-label="Close sidebar"
+			onclick={() => (sidebarOpen = false)}
+		></button>
+	{/if}
 
 	<main>
 		<header>
@@ -343,6 +358,9 @@
 	}
 	.sidebar-collapsed .sidebar {
 		padding-inline: 0;
+	}
+	.sidebar-backdrop {
+		display: none;
 	}
 	.sidebar-actions {
 		display: flex;
@@ -758,7 +776,27 @@
 			grid-template-columns: 1fr;
 		}
 		.sidebar {
-			display: none;
+			position: fixed;
+			inset: 0 auto 0 0;
+			z-index: 30;
+			display: block;
+			width: min(300px, 85vw);
+			padding: 24px 22px;
+			box-shadow: 10px 0 30px rgb(20 76 86 / 18%);
+			transform: translateX(0);
+			transition: transform 0.2s ease;
+		}
+		.sidebar-collapsed .sidebar {
+			padding: 24px 22px;
+			transform: translateX(-100%);
+		}
+		.sidebar-backdrop {
+			position: fixed;
+			inset: 0;
+			z-index: 20;
+			display: block;
+			border: 0;
+			background: rgb(10 52 61 / 24%);
 		}
 		header {
 			height: 72px;
