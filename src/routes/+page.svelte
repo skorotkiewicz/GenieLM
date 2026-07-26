@@ -286,8 +286,8 @@
 			</div>
 		</header>
 
-		<div class="conversation" bind:this={conversation}>
-			<div class:empty={!activeChat?.messages.length} class="message-list">
+		<div class:empty={!activeChat?.messages.length} class="conversation">
+			<div class:empty={!activeChat?.messages.length} class="message-list" bind:this={conversation}>
 				{#if !activeChat?.messages.length}
 					<div class="welcome">
 						<div class="bot-icon large"><span></span></div>
@@ -319,43 +319,43 @@
 						</div>
 					{/if}
 				{/each}
-
-				<form onsubmit={sendMessage}>
-					<label for="prompt">Message GenieLM</label>
-					<textarea
-						id="prompt"
-						bind:value={draft}
-						rows="1"
-						placeholder="Message GenieLM"
-						onkeydown={(event) => {
-							if (event.key === 'Enter' && !event.shiftKey) {
-								event.preventDefault();
-								event.currentTarget.form?.requestSubmit();
-							}
-						}}></textarea>
-					{#if loading}
-						<button type="button" aria-label="Stop responding" onclick={stopResponse}>
-							<svg viewBox="0 0 24 24" aria-hidden="true"
-								><rect
-									x="8"
-									y="8"
-									width="8"
-									height="8"
-									rx="1"
-									fill="currentColor"
-									stroke="none"
-								/></svg
-							>
-						</button>
-					{:else}
-						<button type="submit" aria-label="Send message" disabled={!draft.trim()}>
-							<svg viewBox="0 0 24 24" aria-hidden="true"
-								><path d="M12 19V5" /><path d="m6 11 6-6 6 6" /></svg
-							>
-						</button>
-					{/if}
-				</form>
 			</div>
+
+			<form onsubmit={sendMessage}>
+				<label for="prompt">Message GenieLM</label>
+				<textarea
+					id="prompt"
+					bind:value={draft}
+					rows="1"
+					placeholder="Message GenieLM"
+					onkeydown={(event) => {
+						if (event.key === 'Enter' && !event.shiftKey) {
+							event.preventDefault();
+							event.currentTarget.form?.requestSubmit();
+						}
+					}}></textarea>
+				{#if loading}
+					<button type="button" aria-label="Stop responding" onclick={stopResponse}>
+						<svg viewBox="0 0 24 24" aria-hidden="true"
+							><rect
+								x="8"
+								y="8"
+								width="8"
+								height="8"
+								rx="1"
+								fill="currentColor"
+								stroke="none"
+							/></svg
+						>
+					</button>
+				{:else}
+					<button type="submit" aria-label="Send message" disabled={!draft.trim()}>
+						<svg viewBox="0 0 24 24" aria-hidden="true"
+							><path d="M12 19V5" /><path d="m6 11 6-6 6 6" /></svg
+						>
+					</button>
+				{/if}
+			</form>
 		</div>
 	</main>
 </div>
@@ -510,29 +510,42 @@
 	}
 
 	.conversation {
+		position: relative;
+		display: flex;
+		flex-direction: column;
 		height: calc(100dvh - 90px);
-		overflow-y: auto;
+		overflow: hidden;
 		padding: 27px 34px 34px;
-		scrollbar-color: #c6d3d0 transparent;
 	}
 	.message-list {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		width: min(860px, 100%);
-		min-height: 100%;
+		min-height: 0;
+		overflow-y: auto;
 		margin: 0 auto;
+		padding-bottom: 72px;
+		scrollbar-color: #c6d3d0 transparent;
 	}
 	.message-list.empty {
+		flex: 0 0 auto;
+		overflow: visible;
 		justify-content: flex-start;
 		padding-top: clamp(48px, 9vh, 90px);
+		padding-bottom: 0;
 	}
 	.message-list.empty .welcome {
 		margin: 0;
 		padding-bottom: 0;
 	}
-	.message-list.empty form {
+	.conversation.empty form {
+		position: relative;
+		bottom: auto;
+		left: auto;
 		margin: 28px auto 0;
 		padding-top: 0;
+		transform: none;
 	}
 	.user-row {
 		display: flex;
@@ -768,10 +781,15 @@
 	}
 
 	form {
-		position: relative;
+		position: absolute;
+		bottom: 18px;
+		left: 50%;
+		z-index: 10;
 		width: min(680px, 90%);
-		margin: auto auto 0;
-		padding-top: 28px;
+		margin: 0;
+		padding: 0;
+		transform: translateX(-50%);
+		background: transparent;
 	}
 	form label {
 		position: absolute;
