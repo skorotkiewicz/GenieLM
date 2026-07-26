@@ -28,6 +28,8 @@
 	let loaded = $state(false);
 	let sidebarOpen = $state(true);
 	let providerOpen = $state(false);
+	let accountOpen = $state(false);
+	let shareLabel = $state('Share');
 	let oauthSignedIn = $state(false);
 	let authMessage = $state('');
 	let provider = $state<ProviderSettings>({
@@ -181,11 +183,25 @@
 
 	async function shareChat() {
 		if (!activeChat) return;
-		const text = activeChat.messages
-			.map((message) => `${message.role === 'user' ? 'You' : 'GenieLM'}: ${message.content}`)
-			.join('\n\n');
-		if (navigator.share) await navigator.share({ title: activeChat.title, text });
-		else await navigator.clipboard.writeText(text);
+		const text = `# ${activeChat.title}\n\n${activeChat.messages
+			.map((message) => `## ${message.role === 'user' ? 'You' : 'GenieLM'}\n\n${message.content}`)
+			.join('\n\n')}`;
+
+		try {
+			if (navigator.share) {
+				await navigator.share({ title: activeChat.title, text });
+				shareLabel = 'Shared';
+			} else {
+				await navigator.clipboard.writeText(text);
+				shareLabel = 'Copied';
+			}
+			setTimeout(() => (shareLabel = 'Share'), 1500);
+		} catch (error) {
+			if (!(error instanceof DOMException && error.name === 'AbortError')) {
+				shareLabel = 'Failed';
+				setTimeout(() => (shareLabel = 'Share'), 1500);
+			}
+		}
 	}
 
 	function codeCopy(node: HTMLElement) {
@@ -423,7 +439,10 @@
 						class="brand"
 						aria-expanded={providerOpen}
 						aria-haspopup="dialog"
-						onclick={() => (providerOpen = !providerOpen)}
+						onclick={() => {
+							providerOpen = !providerOpen;
+							accountOpen = false;
+						}}
 					>
 						<span>GenieLM</span>
 						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
@@ -504,9 +523,63 @@
 							d="M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7"
 						/></svg
 					>
-					Share
+					{shareLabel}
 				</button>
-				<button class="avatar" aria-label="Account">BB</button>
+				<div class="account-control">
+					{#if accountOpen}
+						<button
+							class="provider-backdrop"
+							aria-label="Close account menu"
+							onclick={() => (accountOpen = false)}
+						></button>
+					{/if}
+					<button
+						class="avatar"
+						aria-label="Account and provider"
+						aria-expanded={accountOpen}
+						aria-haspopup="dialog"
+						onclick={() => {
+							accountOpen = !accountOpen;
+							providerOpen = false;
+						}}
+					>
+						<svg viewBox="0 0 24 24" aria-hidden="true"
+							><circle cx="12" cy="8" r="4" /><path d="M5 21a7 7 0 0 1 14 0" /></svg
+						>
+					</button>
+					{#if accountOpen}
+						<div class="account-menu" role="dialog" aria-label="Account">
+							<strong>{provider.type === 'oauth' ? 'ChatGPT' : 'Compatible API'}</strong>
+							<div
+								class:signed-in={provider.type === 'oauth' ? oauthSignedIn : providerReady}
+								class="account-status"
+							>
+								<span></span>{provider.type === 'oauth'
+									? oauthSignedIn
+										? 'Connected'
+										: 'Not connected'
+									: providerReady
+										? 'Configured'
+										: 'Setup required'}
+							</div>
+							<p>
+								{provider.type === 'oauth'
+									? provider.oauthModel || 'No model selected'
+									: provider.compatibleModel || 'No model selected'}
+							</p>
+							<button
+								class="provider-primary"
+								onclick={() => {
+									accountOpen = false;
+									providerOpen = true;
+								}}>Provider settings</button
+							>
+							{#if provider.type === 'oauth' && oauthSignedIn}
+								<button class="provider-secondary" onclick={signOutOfChatGPT}>Sign out</button>
+							{/if}
+						</div>
+					{/if}
+				</div>
 			</div>
 		</header>
 
@@ -844,10 +917,54 @@
 		align-items: center;
 		gap: 12px;
 	}
+	.account-control {
+		position: relative;
+	}
+	.account-menu {
+		position: absolute;
+		top: 48px;
+		right: 0;
+		z-index: 42;
+		width: 235px;
+		padding: 17px;
+		border: 1px solid #bfd8d5;
+		border-radius: 14px;
+		background: #f9fbfa;
+		box-shadow: 0 14px 40px rgb(21 91 109 / 16%);
+	}
+	.account-menu strong {
+		display: block;
+		font-size: 14px;
+	}
+	.account-menu p {
+		overflow: hidden;
+		margin: 7px 0 15px;
+		font-size: 12px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.account-status {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-top: 5px;
+		font-size: 11px;
+	}
+	.account-status span {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: #9aa8a7;
+	}
+	.account-status.signed-in span {
+		background: #19a56f;
+	}
 	.share-button {
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 5px;
+		min-width: 75px;
 		padding: 7px 13px;
 		border: 1px solid #b8cfce;
 		border-radius: 18px;
@@ -865,13 +982,22 @@
 		stroke-width: 1.7;
 	}
 	.avatar {
+		position: relative;
+		z-index: 43;
+		display: grid;
+		place-items: center;
 		width: 37px;
 		height: 37px;
 		border-radius: 50%;
 		background: #0da8aa;
 		color: white;
-		font-size: 13px;
-		font-weight: 700;
+	}
+	.avatar svg {
+		width: 19px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.8;
+		stroke-linecap: round;
 	}
 
 	.conversation {
