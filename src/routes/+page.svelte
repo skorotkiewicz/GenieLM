@@ -523,7 +523,16 @@
 		margin: 0 auto;
 	}
 	.message-list.empty {
-		justify-content: center;
+		justify-content: flex-start;
+		padding-top: clamp(48px, 9vh, 90px);
+	}
+	.message-list.empty .welcome {
+		margin: 0;
+		padding-bottom: 0;
+	}
+	.message-list.empty form {
+		margin: 28px auto 0;
+		padding-top: 0;
 	}
 	.user-row {
 		display: flex;
