@@ -30,13 +30,28 @@
 	onMount(() => {
 		try {
 			chats = JSON.parse(localStorage.getItem('genielm-chats') ?? '[]');
-			activeId = localStorage.getItem('genielm-active-chat');
-			if (!chats.some((chat) => chat.id === activeId)) activeId = chats[0]?.id ?? null;
+			const requestedId = conversationIdFromUrl();
+			const savedId = localStorage.getItem('genielm-active-chat');
+			activeId = chats.some((chat) => chat.id === requestedId)
+				? requestedId
+				: requestedId
+					? null
+					: chats.some((chat) => chat.id === savedId)
+						? savedId
+						: null;
+			if (activeId && !requestedId) setConversationUrl(activeId, true);
 		} catch {
 			chats = [];
 			activeId = null;
 		}
+
+		const restoreFromUrl = () => {
+			const id = conversationIdFromUrl();
+			activeId = chats.some((chat) => chat.id === id) ? id : null;
+		};
+		window.addEventListener('popstate', restoreFromUrl);
 		loaded = true;
+		return () => window.removeEventListener('popstate', restoreFromUrl);
 	});
 
 	$effect(() => {
@@ -60,13 +75,25 @@
 		return date.toLocaleString(undefined, { month: 'long' });
 	}
 
+	function conversationIdFromUrl() {
+		return new URLSearchParams(location.search).get('chat');
+	}
+
+	function setConversationUrl(id: string | null, replace = false) {
+		const url = id ? `/?chat=${encodeURIComponent(id)}` : '/';
+		if (replace) history.replaceState({}, '', url);
+		else history.pushState({}, '', url);
+	}
+
 	function newChat() {
 		activeId = null;
 		draft = '';
+		setConversationUrl(null);
 	}
 
 	function selectChat(id: string) {
 		activeId = id;
+		setConversationUrl(id);
 	}
 
 	async function scrollToBottom() {
@@ -97,6 +124,7 @@
 			const id = crypto.randomUUID();
 			chats = [{ id, title: content.slice(0, 48), createdAt: Date.now(), messages: [] }, ...chats];
 			activeId = id;
+			setConversationUrl(id, true);
 			chat = chats[0];
 		}
 
