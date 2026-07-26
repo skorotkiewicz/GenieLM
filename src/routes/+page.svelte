@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { renderMarkdown } from '$lib/markdown';
 	import { onMount, tick } from 'svelte';
 
 	type Message = { role: 'user' | 'assistant'; content: string };
@@ -212,8 +213,10 @@
 						<div class="assistant-message">
 							<div class="bot-icon"><span></span></div>
 							<div class="answer">
-								{message.content}{#if loading && index === activeChat!.messages.length - 1}<i
-										class="cursor"
+								<!-- markdown-it escapes raw HTML; covered by markdown.test.ts -->
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+								{@html renderMarkdown(message.content)}
+								{#if loading && index === activeChat!.messages.length - 1}<i class="cursor"
 									></i>{/if}
 							</div>
 						</div>
@@ -425,11 +428,96 @@
 		margin-bottom: 38px;
 	}
 	.answer {
+		min-width: 0;
 		padding-top: 6px;
-		white-space: pre-wrap;
 		font-size: 13px;
 		line-height: 1.45;
 		overflow-wrap: anywhere;
+	}
+	.answer :global(:first-child) {
+		margin-top: 0;
+	}
+	.answer :global(:last-child) {
+		margin-bottom: 0;
+	}
+	.answer :global(p) {
+		margin: 0 0 12px;
+	}
+	.answer :global(h1),
+	.answer :global(h2),
+	.answer :global(h3),
+	.answer :global(h4),
+	.answer :global(h5),
+	.answer :global(h6) {
+		margin: 18px 0 9px;
+		color: #104c5b;
+		line-height: 1.2;
+	}
+	.answer :global(h1) {
+		font-size: 22px;
+	}
+	.answer :global(h2) {
+		font-size: 19px;
+	}
+	.answer :global(h3) {
+		font-size: 16px;
+	}
+	.answer :global(ul),
+	.answer :global(ol) {
+		margin: 8px 0 14px;
+		padding-left: 24px;
+	}
+	.answer :global(li) {
+		margin: 4px 0;
+	}
+	.answer :global(a) {
+		color: #087f83;
+		font-weight: 600;
+		text-underline-offset: 2px;
+	}
+	.answer :global(blockquote) {
+		margin: 12px 0;
+		padding: 3px 0 3px 13px;
+		border-left: 3px solid #87c9c5;
+		color: #39717c;
+	}
+	.answer :global(pre) {
+		overflow-x: auto;
+		margin: 12px 0;
+		padding: 14px;
+		border-radius: 8px;
+		background: #163d48;
+		color: #e6f5f3;
+		font-size: 12px;
+		line-height: 1.5;
+	}
+	.answer :global(:not(pre) > code) {
+		padding: 2px 5px;
+		border-radius: 4px;
+		background: #dcecea;
+		color: #0b6068;
+		font-size: 0.92em;
+	}
+	.answer :global(table) {
+		display: block;
+		width: 100%;
+		overflow-x: auto;
+		margin: 12px 0;
+		border-collapse: collapse;
+	}
+	.answer :global(th),
+	.answer :global(td) {
+		padding: 7px 10px;
+		border: 1px solid #b9d7d3;
+		text-align: left;
+	}
+	.answer :global(th) {
+		background: #dcecea;
+	}
+	.answer :global(hr) {
+		margin: 18px 0;
+		border: 0;
+		border-top: 1px solid #bfd8d5;
 	}
 
 	.bot-icon {
