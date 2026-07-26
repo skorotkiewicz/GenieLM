@@ -1,12 +1,7 @@
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { provider } from '$lib/server/provider';
 import { convertToModelMessages, streamText, type UIMessage } from 'ai';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-
-const provider = createOpenAICompatible({
-	name: 'local',
-	baseURL: 'http://192.168.0.124:8888/v1'
-});
 
 export const POST: RequestHandler = async ({ request }) => {
 	let messages: UIMessage[];

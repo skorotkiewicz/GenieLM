@@ -150,6 +150,21 @@
 		return { destroy: () => node.removeEventListener('click', handleClick) };
 	}
 
+	async function summarizeTitle(chat: Chat, prompt: string) {
+		try {
+			const response = await fetch('/api/title', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ prompt })
+			});
+			if (!response.ok) return;
+			const { title } = await response.json();
+			if (typeof title === 'string' && title) chat.title = title;
+		} catch {
+			return;
+		}
+	}
+
 	function stopResponse() {
 		abortController?.abort();
 	}
@@ -166,6 +181,7 @@
 			activeId = id;
 			setConversationUrl(id, true);
 			chat = chats[0];
+			void summarizeTitle(chat, content);
 		}
 
 		const requestMessages = [...chat.messages, { role: 'user', content } satisfies Message];
