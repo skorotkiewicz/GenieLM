@@ -515,7 +515,7 @@
 		flex-direction: column;
 		height: calc(100dvh - 90px);
 		overflow: hidden;
-		padding: 27px 34px 34px;
+		padding: 27px 34px 0;
 	}
 	.message-list {
 		display: flex;
@@ -895,7 +895,7 @@
 		}
 		.conversation {
 			height: calc(100dvh - 72px);
-			padding: 18px 16px 25px;
+			padding: 18px 16px 0;
 		}
 		.assistant-message {
 			grid-template-columns: 48px 1fr;
