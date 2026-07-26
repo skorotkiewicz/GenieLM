@@ -654,6 +654,15 @@
 		border: 0;
 		border-top: 1px solid #bfd8d5;
 	}
+	.answer :global(.katex-block) {
+		overflow-x: auto;
+		margin: 16px 0;
+		padding: 10px 0;
+		text-align: center;
+	}
+	.answer :global(.katex-error) {
+		color: #a33b35;
+	}
 
 	.bot-icon {
 		position: relative;

@@ -40,8 +40,10 @@
 	},
 	"dependencies": {
 		"@ai-sdk/openai-compatible": "^3.0.14",
+		"@mdit/plugin-katex": "^1.0.1",
 		"ai": "^7.0.37",
 		"highlight.js": "^11.11.1",
+		"katex": "^0.18.1",
 		"markdown-it": "^14.3.0"
 	}
 }

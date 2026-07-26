@@ -1,3 +1,4 @@
+import { katex } from '@mdit/plugin-katex';
 import hljs from 'highlight.js/lib/common';
 import MarkdownIt from 'markdown-it';
 
@@ -15,6 +16,9 @@ markdown.options.highlight = (code, language) => {
 	return `<pre class="hljs"><button type="button" class="copy-code" aria-label="Copy code">Copy</button><code>${highlighted}</code></pre>`;
 };
 
+markdown.use(katex, { delimiters: 'all', mathFence: true });
+
 export function renderMarkdown(content: string) {
-	return markdown.render(content);
+	const normalized = content.replace(/^(`{3,}|~{3,})(?:latex|tex)\s*$/gim, '$1math');
+	return markdown.render(normalized);
 }

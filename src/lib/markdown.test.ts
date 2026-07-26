@@ -27,3 +27,18 @@ test('copyable unknown-language blocks remain escaped', () => {
 	expect(html).not.toContain('<script>');
 	expect(html).toContain('&lt;script&gt;');
 });
+
+test('renders inline and display KaTeX', () => {
+	const inline = renderMarkdown('Energy is $E = mc^2$.');
+	const display = renderMarkdown('$$\nE = mc^2\n$$');
+
+	expect(inline).toContain('class="katex"');
+	expect(display).toContain("class='katex-block'");
+});
+
+test('renders old latex fences as KaTeX instead of code', () => {
+	const html = renderMarkdown('```latex\nE = mc^2\n```');
+
+	expect(html).toContain("class='katex-block'");
+	expect(html).not.toContain('copy-code');
+});
