@@ -1,3 +1,12 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+html,
+body {
+	margin: 0;
+	min-width: 320px;
+	min-height: 100%;
+	font-family: 'Avenir Next', 'Segoe UI', Arial, sans-serif;
+	background: #f4f7f5;
+}
