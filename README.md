@@ -2,7 +2,9 @@
 
 A small SvelteKit chat client for OpenAI-compatible models and ChatGPT OAuth. Conversations stay in the browser, while responses stream through the app server.
 
-![GenieLM chat with rendered mathematics and account settings](assets/screenshot-2.png)
+<p align="center">
+  <img src="assets/screenshot-4.png" alt="GenieLM welcome screen" />
+</p>
 
 ## What it does
 
