@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BotIcon from '$lib/BotIcon.svelte';
 	import { renderMarkdown } from '$lib/markdown';
 	import { onMount, tick } from 'svelte';
 
@@ -290,7 +291,7 @@
 			<div class:empty={!activeChat?.messages.length} class="message-list" bind:this={conversation}>
 				{#if !activeChat?.messages.length}
 					<div class="welcome">
-						<div class="bot-icon large"><span></span></div>
+						<BotIcon large />
 						<h1>How can I help you today?</h1>
 					</div>
 				{/if}
@@ -300,7 +301,7 @@
 						<div class="user-row"><div class="user-message">{message.content}</div></div>
 					{:else}
 						<div class="assistant-message">
-							<div class="bot-icon"><span></span></div>
+							<BotIcon />
 							{#if loading && index === activeChat!.messages.length - 1 && !message.content}
 								<div class="thinking" role="status">
 									Thinking<span></span><span></span><span></span>
@@ -686,57 +687,6 @@
 		color: #a33b35;
 	}
 
-	.bot-icon {
-		position: relative;
-		width: 41px;
-		height: 37px;
-		margin-top: 1px;
-		border: 2px solid #377083;
-		border-radius: 48% 48% 43% 43%;
-	}
-	.bot-icon::before,
-	.bot-icon::after {
-		content: '';
-		position: absolute;
-		top: 15px;
-		width: 4px;
-		height: 4px;
-		border-radius: 50%;
-		background: #377083;
-	}
-	.bot-icon::before {
-		left: 9px;
-	}
-	.bot-icon::after {
-		right: 9px;
-	}
-	.bot-icon span::before {
-		content: '';
-		position: absolute;
-		top: -10px;
-		left: 19px;
-		width: 2px;
-		height: 9px;
-		background: #377083;
-		transform: rotate(16deg);
-	}
-	.bot-icon span::after {
-		content: '';
-		position: absolute;
-		top: -13px;
-		left: 19px;
-		width: 5px;
-		height: 5px;
-		border: 2px solid #377083;
-		border-radius: 50%;
-	}
-	.bot-icon {
-		box-shadow:
-			-5px 12px 0 -4px #f4f7f5,
-			-7px 12px 0 -5px #377083,
-			5px 12px 0 -4px #f4f7f5,
-			7px 12px 0 -5px #377083;
-	}
 	.answer.streaming :global(:last-child)::after {
 		content: '';
 		display: inline-block;
@@ -847,10 +797,6 @@
 		margin: auto 0;
 		padding-bottom: 28px;
 		text-align: center;
-	}
-	.welcome .bot-icon {
-		margin: 0 auto 25px;
-		transform: scale(1.25);
 	}
 	.welcome h1 {
 		margin: 0;
