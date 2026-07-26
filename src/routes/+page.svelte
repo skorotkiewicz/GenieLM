@@ -30,7 +30,6 @@
 	let providerOpen = $state(false);
 	let oauthSignedIn = $state(false);
 	let authMessage = $state('');
-	let extensionUrl = $state('');
 	let provider = $state<ProviderSettings>({
 		type: 'compatible',
 		baseURL: '',
@@ -238,12 +237,11 @@
 
 	async function signInWithChatGPT() {
 		authMessage = '';
-		extensionUrl = '';
 		try {
 			const result = await startLogin();
 			if (result.status === 'needs-extension') {
-				extensionUrl = result.installUrl;
-				authMessage = 'Install the Sign in with ChatGPT extension, then try again.';
+				const installWindow = window.open(result.installUrl, '_blank', 'noopener,noreferrer');
+				if (!installWindow) authMessage = 'Allow popups to open the extension store.';
 			}
 		} catch (error) {
 			authMessage = error instanceof Error ? error.message : 'ChatGPT sign-in failed.';
@@ -493,10 +491,6 @@
 									>
 								{/if}
 								{#if authMessage}<p class="auth-message" role="status">{authMessage}</p>{/if}
-								{#if extensionUrl}
-									<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-									<a href={extensionUrl} target="_blank" rel="noreferrer">Install extension</a>
-								{/if}
 								<p class="provider-note">Credentials are encrypted and stored in this browser.</p>
 							{/if}
 						</div>
@@ -844,13 +838,6 @@
 	}
 	.provider-note {
 		opacity: 0.72;
-	}
-	.provider-menu a {
-		display: inline-block;
-		margin-top: 7px;
-		color: inherit;
-		font-size: 12px;
-		font-weight: 700;
 	}
 	.account-actions {
 		display: flex;
