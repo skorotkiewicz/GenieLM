@@ -176,6 +176,17 @@
 		closeSidebarOnMobile();
 	}
 
+	function removeChat(chat: Chat) {
+		if (!confirm(`Delete "${chat.title}"?`)) return;
+		chats = chats.filter((item) => item.id !== chat.id);
+		if (activeId === chat.id) {
+			abortController?.abort();
+			activeId = null;
+			draft = '';
+			setConversationUrl(null, true);
+		}
+	}
+
 	async function scrollToBottom() {
 		await tick();
 		conversation?.scrollTo({ top: conversation.scrollHeight, behavior: 'smooth' });
@@ -403,9 +414,23 @@
 				<section class="history-group">
 					<h2>{group.label}</h2>
 					{#each group.chats as chat (chat.id)}
-						<button class:active={chat.id === activeId} onclick={() => selectChat(chat.id)}
-							>{chat.title}</button
-						>
+						<div class="chat-item">
+							<button
+								class:active={chat.id === activeId}
+								class="chat-link"
+								onclick={() => selectChat(chat.id)}>{chat.title}</button
+							>
+							<button
+								class="remove-chat"
+								aria-label={`Delete ${chat.title}`}
+								title="Delete conversation"
+								onclick={() => removeChat(chat)}
+							>
+								<svg viewBox="0 0 24 24" aria-hidden="true"
+									><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" /></svg
+								>
+							</button>
+						</div>
 					{/each}
 				</section>
 			{/each}
@@ -682,7 +707,10 @@
 		grid-template-columns: 0 1fr;
 	}
 	.sidebar {
-		overflow: hidden auto;
+		display: flex;
+		flex-direction: column;
+		height: 100dvh;
+		overflow: hidden;
 		padding: 24px 22px;
 		background: #c1e4e1;
 	}
@@ -694,8 +722,14 @@
 	}
 	.sidebar-actions {
 		display: flex;
+		flex: none;
 		justify-content: space-between;
 		margin-bottom: 43px;
+	}
+	.sidebar nav {
+		min-height: 0;
+		overflow-y: auto;
+		scrollbar-color: #8fc4c0 transparent;
 	}
 	.icon-button,
 	.open-sidebar,
@@ -727,19 +761,51 @@
 		font-size: 14px;
 		font-weight: 700;
 	}
-	.history-group button {
+	.chat-item {
+		position: relative;
+		margin-bottom: 7px;
+	}
+	.chat-link {
 		display: block;
 		width: 100%;
-		margin: 0 0 7px;
-		padding: 4px 5px;
+		padding: 4px 28px 4px 5px;
 		border-radius: 5px;
 		text-align: left;
 		font-size: 13px;
 		line-height: 1.25;
 	}
-	.history-group button:hover,
-	.history-group button.active {
+	.chat-link:hover,
+	.chat-link.active {
 		background: rgb(255 255 255 / 25%);
+	}
+	.remove-chat {
+		position: absolute;
+		top: 50%;
+		right: 3px;
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		border-radius: 5px;
+		opacity: 0;
+		transform: translateY(-50%);
+	}
+	.chat-item:hover .remove-chat,
+	.chat-item:focus-within .remove-chat {
+		opacity: 0.7;
+	}
+	.remove-chat:hover {
+		background: rgb(255 255 255 / 45%);
+		opacity: 1;
+	}
+	.remove-chat svg {
+		width: 15px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.7;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 
 	main {
@@ -1294,6 +1360,12 @@
 		font-weight: 500;
 	}
 
+	@media (hover: none) {
+		.remove-chat {
+			opacity: 0.7;
+		}
+	}
+
 	@media (max-width: 760px) {
 		.app-shell,
 		.app-shell.sidebar-collapsed {
@@ -1303,7 +1375,6 @@
 			position: fixed;
 			inset: 0 auto 0 0;
 			z-index: 30;
-			display: block;
 			width: min(300px, 85vw);
 			padding: 24px 22px;
 			box-shadow: 10px 0 30px rgb(20 76 86 / 18%);
