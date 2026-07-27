@@ -3,7 +3,7 @@ import { jsonSchema, tool } from 'ai';
 type SearchInput = { query: string };
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
-const decodeHtml = (value: string) =>
+export const decodeHtml = (value: string) =>
 	value.replace(/&(#(?:x[\da-f]+|\d+)|amp|quot|apos|lt|gt|nbsp);/gi, (_, entity: string) => {
 		if (entity[0] === '#') {
 			const codePoint = Number.parseInt(
