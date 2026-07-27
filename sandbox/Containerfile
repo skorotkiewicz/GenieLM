@@ -1,0 +1,6 @@
+FROM docker.io/library/alpine@sha256:eafc1edb577d2e9b458664a15f23ea1c370214193226069eb22921169fc7e43f
+
+RUN apk add --no-cache nodejs python3
+
+USER 65534:65534
+WORKDIR /workspace

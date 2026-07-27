@@ -1,5 +1,6 @@
 import { createChatStreamResponse } from '$lib/chat-stream';
 import { modelForRequest } from '$lib/server/provider';
+import { runCode } from '$lib/server/tool/run-code';
 import { getWeather } from '$lib/server/tool/weather';
 import { webSearch } from '$lib/server/tool/web-search';
 import { convertToModelMessages, isStepCount, streamText, type UIMessage } from 'ai';
@@ -44,7 +45,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			system:
 				'You are GenieLM, a helpful and concise assistant. Use webSearch when current web information would improve the answer, and cite the result URLs you use.',
 			messages: await convertToModelMessages(messages),
-			tools: { webSearch, getWeather },
+			tools: { webSearch, getWeather, runCode },
 			stopWhen: isStepCount(3),
 			stopSequences: ['<|im_end|>', '<|eot_id|>', '<|end|>', '</s>']
 		});

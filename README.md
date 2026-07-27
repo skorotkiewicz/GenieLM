@@ -16,6 +16,7 @@ GenieLM is a small SvelteKit chat client for OpenAI-compatible models and ChatGP
 - Shares conversations as Markdown
 - Copies individual messages
 - Reads messages with the browser system voice
+- Searches the web, checks weather, and runs code in an isolated Linux container
 - Supports desktop and mobile devices
 
 <table>
@@ -33,8 +34,11 @@ GenieLM is a small SvelteKit chat client for OpenAI-compatible models and ChatGP
 
 ```sh
 bun install
+bun run sandbox:build       # requires rootless Podman
 bun run dev -- --open
 ```
+
+The code tool runs Python, JavaScript, and shell snippets without network access in a disposable Alpine container. If you do not build the image, the other tools still work.
 
 Before you send your first message, open the GenieLM menu in the header.
 
@@ -69,4 +73,5 @@ bun run check               # Svelte and TypeScript checks
 bun test src                # tests
 bunx eslint src             # lint source files
 bun run build               # production build
+bun run sandbox:build       # build the local code-execution image
 ```
