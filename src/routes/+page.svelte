@@ -48,7 +48,6 @@
 		oauthModel: 'gpt-5.4-mini',
 		apiKey: ''
 	});
-	let conversation: HTMLDivElement;
 	let abortController: AbortController | null = null;
 
 	const activeChat = $derived(chats.find((chat) => chat.id === activeId));
@@ -203,7 +202,7 @@
 
 	async function scrollToBottom() {
 		await tick();
-		conversation?.scrollTo({ top: conversation.scrollHeight, behavior: 'smooth' });
+		window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
 	}
 
 	async function shareChat() {
@@ -826,7 +825,7 @@
 		{/if}
 
 		<div class:empty={!activeChat?.messages.length} class="conversation">
-			<div class:empty={!activeChat?.messages.length} class="message-list" bind:this={conversation}>
+			<div class:empty={!activeChat?.messages.length} class="message-list">
 				{#if !activeChat?.messages.length}
 					<div class="welcome">
 						<BotIcon large />
@@ -920,6 +919,9 @@
 	:global(*) {
 		box-sizing: border-box;
 	}
+	:global(html:has(.knowledge-dialog)) {
+		overflow: hidden;
+	}
 	button,
 	input,
 	textarea {
@@ -941,8 +943,11 @@
 		grid-template-columns: 0 1fr;
 	}
 	.sidebar {
+		position: sticky;
+		top: 0;
 		display: flex;
 		flex-direction: column;
+		align-self: start;
 		height: 100dvh;
 		overflow: hidden;
 		padding: 24px 22px;
@@ -963,6 +968,9 @@
 	.sidebar nav {
 		min-height: 0;
 		overflow-y: auto;
+		overscroll-behavior-y: contain;
+		margin-right: -22px;
+		padding-right: 22px;
 		scrollbar-color: #8fc4c0 transparent;
 	}
 	.icon-button,
@@ -1044,8 +1052,7 @@
 
 	main {
 		min-width: 0;
-		height: 100dvh;
-		overflow: hidden;
+		min-height: 100dvh;
 	}
 	header {
 		position: relative;
@@ -1417,8 +1424,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		height: calc(100dvh - 90px);
-		overflow: hidden;
+		min-height: calc(100dvh - 90px);
 		padding: 27px 34px 0;
 	}
 	.message-list {
@@ -1426,11 +1432,8 @@
 		flex: 1;
 		flex-direction: column;
 		width: min(860px, 100%);
-		min-height: 0;
-		overflow-y: auto;
 		margin: 0 auto;
 		padding-bottom: 72px;
-		scrollbar-color: #c6d3d0 transparent;
 	}
 	.message-list.empty {
 		flex: 0 0 auto;
@@ -1739,15 +1742,19 @@
 	}
 
 	form {
-		position: absolute;
+		position: fixed;
 		bottom: 18px;
-		left: 50%;
+		left: calc(50% + 102px);
 		z-index: 10;
-		width: min(680px, 90%);
+		width: min(680px, calc(100vw - 272px));
 		margin: 0;
 		padding: 0;
 		transform: translateX(-50%);
 		background: transparent;
+	}
+	.sidebar-collapsed form {
+		left: 50%;
+		width: min(680px, calc(100vw - 68px));
 	}
 	form label {
 		position: absolute;
@@ -1854,8 +1861,13 @@
 			font-size: 21px;
 		}
 		.conversation {
-			height: calc(100dvh - 72px);
+			min-height: calc(100dvh - 72px);
 			padding: 18px 16px 0;
+		}
+		form,
+		.sidebar-collapsed form {
+			left: 50%;
+			width: min(680px, calc(100vw - 32px));
 		}
 		.assistant-message {
 			grid-template-columns: 48px 1fr;
