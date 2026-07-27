@@ -56,11 +56,18 @@ hf download Xenova/multilingual-e5-small \
   --local-dir multilingual-e5-small
 ```
 
-Open **Account → Knowledge** to index `.md` and `.txt` files. The model can also save, update, or forget a `[Memory]` document when you explicitly ask it to. Documents, memories, chunks, and embeddings stay in the ignored local `knowledge.db` file.
+Open the account menu from the avatar. Select **Knowledge** to index `.md` and `.txt` files. The model can also save, update, or forget a `[Memory]` document when you explicitly ask it to. Documents, memories, chunks, and embeddings stay in the ignored local `knowledge.db` file.
 
-<p align="center">
-  <img src="assets/screenshot-5.png" width="70%" alt="GenieLM local knowledge manager with documents and a saved memory" />
-</p>
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screenshot-6.png" alt="GenieLM account menu with the Knowledge button" /></td>
+    <td width="50%"><img src="assets/screenshot-5.png" alt="GenieLM local knowledge manager with documents and a saved memory" /></td>
+  </tr>
+  <tr>
+    <td align="center">Open Local knowledge</td>
+    <td align="center">Manage local documents</td>
+  </tr>
+</table>
 
 Before you send your first message, open the GenieLM menu in the header.
 
