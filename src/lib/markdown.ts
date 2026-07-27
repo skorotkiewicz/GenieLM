@@ -13,7 +13,7 @@ markdown.options.highlight = (code, language) => {
 		language && hljs.getLanguage(language)
 			? hljs.highlight(code, { language, ignoreIllegals: true }).value
 			: markdown.utils.escapeHtml(code);
-	return `<pre class="hljs"><button type="button" class="copy-code" aria-label="Copy code">Copy</button><code>${highlighted}</code></pre>`;
+	return `<pre class="hljs"><span class="copy-code-holder"><button type="button" class="copy-code" aria-label="Copy code">Copy</button></span><code>${highlighted}</code></pre>`;
 };
 
 markdown.use(katex, { delimiters: 'all', mathFence: true });

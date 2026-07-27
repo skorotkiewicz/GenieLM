@@ -16,6 +16,7 @@ test('syntax-highlights supported fenced-code languages', () => {
 	const html = renderMarkdown('```javascript\nconst answer = 42;\n```');
 
 	expect(html).toContain('<pre class="hljs">');
+	expect(html).toContain('<span class="copy-code-holder">');
 	expect(html).toContain('<button type="button" class="copy-code"');
 	expect(html).toContain('<span class="hljs-keyword">const</span>');
 });

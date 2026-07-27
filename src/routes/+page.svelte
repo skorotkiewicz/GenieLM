@@ -288,7 +288,7 @@
 		async function handleClick(event: MouseEvent) {
 			if (!(event.target instanceof Element)) return;
 			const button = event.target.closest<HTMLButtonElement>('.copy-code');
-			const code = button?.parentElement?.querySelector('code')?.textContent;
+			const code = button?.closest('pre')?.querySelector('code')?.textContent;
 			if (!button || code == null || !(await copyText(code))) return;
 
 			button.textContent = 'Copied';
@@ -1583,7 +1583,6 @@
 	}
 	.answer :global(pre) {
 		position: relative;
-		overflow-x: auto;
 		margin: 12px 0;
 		padding: 14px;
 		border-radius: 8px;
@@ -1592,10 +1591,21 @@
 		font-size: 12px;
 		line-height: 1.5;
 	}
+	.answer :global(pre > code) {
+		display: block;
+		overflow-x: auto;
+	}
+	.answer :global(.copy-code-holder) {
+		position: sticky;
+		top: 9px;
+		z-index: 1;
+		display: block;
+		height: 0;
+	}
 	.answer :global(.copy-code) {
 		position: absolute;
-		top: 9px;
-		right: 9px;
+		top: 0;
+		right: 0;
 		padding: 4px 9px;
 		border: 1px solid rgb(230 245 243 / 25%);
 		border-radius: 5px;
