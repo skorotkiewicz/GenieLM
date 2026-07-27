@@ -1,3 +1,4 @@
+import { createChatStreamResponse } from '$lib/chat-stream';
 import { modelForRequest } from '$lib/server/provider';
 import { convertToModelMessages, streamText, type UIMessage } from 'ai';
 import { json } from '@sveltejs/kit';
@@ -43,7 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			stopSequences: ['<|im_end|>', '<|eot_id|>', '<|end|>', '</s>']
 		});
 
-		return result.toTextStreamResponse();
+		return createChatStreamResponse(result.stream);
 	} catch {
 		return json({ error: 'The selected provider is unavailable.' }, { status: 502 });
 	}

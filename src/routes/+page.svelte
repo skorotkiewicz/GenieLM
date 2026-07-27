@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BotIcon from '$lib/BotIcon.svelte';
+	import { readChatStream } from '$lib/chat-stream';
 	import { renderMarkdown } from '$lib/markdown';
 	import {
 		completeLogin,
@@ -10,7 +11,7 @@
 	} from '@openai-oauth/web';
 	import { onMount, tick } from 'svelte';
 
-	type Message = { role: 'user' | 'assistant'; content: string };
+	type Message = { role: 'user' | 'assistant'; content: string; reasoning?: string };
 	type Chat = { id: string; title: string; createdAt: number; messages: Message[] };
 	type HistoryGroup = { label: string; chats: Chat[] };
 	type ProviderSettings = {
@@ -384,7 +385,10 @@
 		}
 
 		const requestMessages = [...chat.messages, { role: 'user', content } satisfies Message];
-		chat.messages.push({ role: 'user', content }, { role: 'assistant', content: '' });
+		chat.messages.push(
+			{ role: 'user', content },
+			{ role: 'assistant', content: '', reasoning: '' }
+		);
 		const answerIndex = chat.messages.length - 1;
 		draft = '';
 		loading = true;
@@ -408,14 +412,13 @@
 			});
 			if (!response.ok || !response.body) throw new Error('Request failed');
 
-			const reader = response.body.getReader();
-			const decoder = new TextDecoder();
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				chat.messages[answerIndex].content += decoder.decode(value, { stream: true });
+			await readChatStream(response.body, async (event) => {
+				const message = chat.messages[answerIndex];
+				if (event.type === 'reasoning-delta') {
+					message.reasoning = (message.reasoning ?? '') + event.text;
+				} else message.content += event.text;
 				await scrollToBottom();
-			}
+			});
 			if (!chat.messages[answerIndex].content) throw new Error('Empty response');
 		} catch {
 			if (controller.signal.aborted) {
@@ -727,11 +730,20 @@
 						<div class="assistant-message">
 							<BotIcon />
 							<div class="assistant-content">
-								{#if loading && index === activeChat!.messages.length - 1 && !message.content}
-									<div class="thinking" role="status">
-										Thinking<span></span><span></span><span></span>
-									</div>
-								{:else}
+								{#if message.reasoning || (loading && index === activeChat!.messages.length - 1 && !message.content)}
+									<details class="thinking">
+										<summary>
+											Thinking
+											{#if loading && !message.content}
+												<span class="thinking-dots" aria-hidden="true"
+													><span></span><span></span><span></span></span
+												>
+											{/if}
+										</summary>
+										{#if message.reasoning}<div class="reasoning">{message.reasoning}</div>{/if}
+									</details>
+								{/if}
+								{#if message.content}
 									<div
 										class:streaming={loading && index === activeChat!.messages.length - 1}
 										class="answer"
@@ -1418,25 +1430,57 @@
 		vertical-align: -2px;
 	}
 	.thinking {
-		display: flex;
-		align-items: center;
-		gap: 4px;
 		padding-top: 8px;
 		font-size: 13px;
-		font-weight: 600;
 	}
-	.thinking span {
+	.thinking summary {
+		display: flex;
+		width: fit-content;
+		align-items: center;
+		gap: 4px;
+		font-weight: 600;
+		cursor: pointer;
+		list-style: none;
+	}
+	.thinking summary::-webkit-details-marker {
+		display: none;
+	}
+	.thinking summary::before {
+		content: '›';
+		font-size: 18px;
+		line-height: 0;
+		transition: transform 0.15s ease;
+	}
+	.thinking[open] summary::before {
+		transform: rotate(90deg);
+	}
+	.thinking-dots {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+	}
+	.thinking-dots span {
 		width: 4px;
 		height: 4px;
 		border-radius: 50%;
 		background: currentColor;
 		animation: think 1.2s ease-in-out infinite;
 	}
-	.thinking span:nth-child(2) {
+	.thinking-dots span:nth-child(2) {
 		animation-delay: 0.15s;
 	}
-	.thinking span:nth-child(3) {
+	.thinking-dots span:nth-child(3) {
 		animation-delay: 0.3s;
+	}
+	.reasoning {
+		overflow-wrap: anywhere;
+		margin: 8px 0 4px 5px;
+		padding-left: 12px;
+		border-left: 2px solid #b9d7d3;
+		color: #45615e;
+		font-weight: 400;
+		line-height: 1.5;
+		white-space: pre-wrap;
 	}
 	@keyframes blink {
 		50% {
