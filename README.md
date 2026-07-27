@@ -1,21 +1,22 @@
 # GenieLM
 
-A small SvelteKit chat client for OpenAI-compatible models and ChatGPT OAuth. Conversations stay in the browser, while responses stream through the app server.
+GenieLM is a small SvelteKit chat client for OpenAI-compatible models and ChatGPT OAuth. It stores conversations in the browser. The app server streams model responses.
 
 <p align="center">
   <img src="assets/screenshot-4.png" alt="GenieLM welcome screen" />
 </p>
 
-## What it does
+## Features
 
 - Connects to any OpenAI-compatible base URL and model
-- Signs in with ChatGPT through the community-maintained [openai-oauth](https://github.com/EvanZhouDev/openai-oauth) plugin
-- Streams responses with stop control
-- Saves conversations locally and gives each one an LLM-generated title
-- Renders Markdown, highlighted code, copy buttons, tables, and KaTeX
+- Supports ChatGPT access through the community-maintained [openai-oauth](https://github.com/EvanZhouDev/openai-oauth) plugin
+- Streams responses and lets you stop generation
+- Stores conversations locally and creates an LLM-generated title for each conversation
+- Shows Markdown, highlighted code, copy buttons, tables, and KaTeX
 - Shares conversations as Markdown
-- Copies individual messages or reads them with the browser's system voice
-- Works on desktop and mobile
+- Copies individual messages
+- Reads messages with the browser system voice
+- Supports desktop and mobile devices
 
 <table>
   <tr>
@@ -35,23 +36,30 @@ bun install
 bun run dev -- --open
 ```
 
-Open the GenieLM menu in the header before sending your first message.
+Before you send your first message, open the GenieLM menu in the header.
 
 ### OpenAI-compatible API
 
-Enter the base URL, model name, and optional API key. The base URL should include the API prefix, such as `http://localhost:8888/v1`.
+Enter the base URL, model name, and optional API key. Include the API prefix in the base URL, such as `http://localhost:8888/v1`.
 
 ### ChatGPT OAuth
 
-Choose ChatGPT and press **Sign in with ChatGPT**. If the browser extension is missing, GenieLM opens its installation page in a new tab. Return to GenieLM after installation and press the button again.
+1. Select ChatGPT.
+2. Select **Sign in with ChatGPT**.
+
+If the browser extension is missing, GenieLM opens its installation page in a new tab.
+
+1. Install the browser extension.
+2. Return to GenieLM.
+3. Select **Sign in with ChatGPT** again.
 
 The OAuth integration is unofficial and is not affiliated with OpenAI.
 
 ## Local data
 
-Conversation history and non-secret provider settings use `localStorage`. Custom API keys remain in `sessionStorage` for the current tab. The OAuth plugin encrypts its browser session in IndexedDB.
+GenieLM stores conversation history and non-secret provider settings in `localStorage`. It stores custom API keys in `sessionStorage` for the current tab. The OAuth plugin encrypts its browser session in IndexedDB.
 
-Raw HTML in model output is escaped before Markdown is rendered.
+GenieLM escapes raw HTML in model output before it renders Markdown.
 
 ## Commands
 
