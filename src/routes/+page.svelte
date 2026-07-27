@@ -1585,7 +1585,7 @@
 		position: relative;
 		overflow-x: auto;
 		margin: 12px 0;
-		padding: 42px 14px 14px;
+		padding: 14px;
 		border-radius: 8px;
 		background: #163d48;
 		color: #e6f5f3;
@@ -1604,6 +1604,11 @@
 		font-family: 'Avenir Next', 'Segoe UI', Arial, sans-serif;
 		font-size: 11px;
 		cursor: pointer;
+		opacity: 0;
+	}
+	.answer :global(pre:hover .copy-code),
+	.answer :global(.copy-code:focus-visible) {
+		opacity: 1;
 	}
 	.answer :global(.copy-code:hover),
 	.answer :global(.copy-code:focus-visible) {
