@@ -35,6 +35,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (!/\.(?:md|txt)$/i.test(name)) {
 			return json({ error: 'Only Markdown and text documents are supported.' }, { status: 400 });
 		}
+		if (/^\[Memory\]\s/i.test(name)) {
+			return json({ error: 'The [Memory] namespace is reserved.' }, { status: 400 });
+		}
 
 		const content = await file.text();
 		if (!content.trim()) return json({ error: 'Document is empty.' }, { status: 400 });
