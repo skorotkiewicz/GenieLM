@@ -248,6 +248,13 @@
 		}, 1500);
 	}
 
+	function removeMessage(index: number) {
+		if (!activeChat || loading || !confirm('Delete this message?')) return;
+		stopSpeaking();
+		copiedMessage = null;
+		activeChat.messages.splice(index, 1);
+	}
+
 	function stopSpeaking() {
 		if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
 		speakingMessage = null;
@@ -467,6 +474,16 @@
 					/></svg
 				>
 			{/if}
+		</button>
+		<button
+			aria-label="Delete message"
+			title={loading ? 'Wait for response to finish' : 'Delete message'}
+			disabled={loading}
+			onclick={() => removeMessage(index)}
+		>
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" /></svg
+			>
 		</button>
 	</div>
 {/snippet}
