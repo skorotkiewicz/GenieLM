@@ -1880,7 +1880,11 @@
 			max-width: 88%;
 		}
 		.share-button {
-			padding: 7px;
+			gap: 0;
+			min-width: 37px;
+			height: 37px;
+			padding: 0;
+			border-radius: 50%;
 			font-size: 0;
 		}
 	}
