@@ -1268,6 +1268,10 @@
 		font-size: 24px;
 		line-height: 1;
 	}
+	.knowledge-heading button,
+	.knowledge-list button:not(:disabled) {
+		cursor: pointer;
+	}
 	.knowledge-upload {
 		display: block;
 		width: 100%;
