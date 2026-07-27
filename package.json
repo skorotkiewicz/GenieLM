@@ -41,9 +41,11 @@
 	},
 	"dependencies": {
 		"@ai-sdk/openai-compatible": "^3.0.14",
+		"@huggingface/transformers": "^4.2.0",
 		"@mdit/plugin-katex": "^1.0.1",
 		"@openai-oauth/ai-sdk": "2.0.0",
 		"@openai-oauth/web": "2.0.0",
+		"@sqliteai/sqlite-vector": "^1.0.0",
 		"ai": "^7.0.37",
 		"highlight.js": "^11.11.1",
 		"katex": "^0.18.1",

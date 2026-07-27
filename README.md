@@ -16,6 +16,7 @@ GenieLM is a small SvelteKit chat client for OpenAI-compatible models and ChatGP
 - Shares conversations as Markdown
 - Copies individual messages
 - Reads messages with the browser system voice
+- Searches private local Markdown and text documents with multilingual embeddings
 - Searches the web, checks weather, and runs code in an isolated Linux container
 - Supports desktop and mobile devices
 
@@ -40,6 +41,10 @@ bun run dev -- --open
 
 The code tool runs Python, JavaScript, and shell snippets without network access in a disposable Alpine container. If you do not build the image, the other tools still work.
 
+### Local knowledge
+
+Place the [Xenova multilingual E5 model](https://huggingface.co/Xenova/multilingual-e5-small) in `multilingual-e5-small/`, including `onnx/model_quantized.onnx`. Open **Account → Knowledge** to index `.md` and `.txt` files. Documents, chunks, and embeddings stay in the ignored local `knowledge.db` file.
+
 Before you send your first message, open the GenieLM menu in the header.
 
 ### OpenAI-compatible API
@@ -61,7 +66,7 @@ The OAuth integration is unofficial and is not affiliated with OpenAI.
 
 ## Local data
 
-GenieLM stores conversation history and non-secret provider settings in `localStorage`. It stores custom API keys in `sessionStorage` for the current tab. The OAuth plugin encrypts its browser session in IndexedDB.
+GenieLM stores conversation history and non-secret provider settings in `localStorage`. It stores custom API keys in `sessionStorage` for the current tab. The OAuth plugin encrypts its browser session in IndexedDB. Private knowledge documents and embeddings stay in the local `knowledge.db` file.
 
 GenieLM escapes raw HTML in model output before it renders Markdown.
 

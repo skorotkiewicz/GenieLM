@@ -8,6 +8,10 @@ node_modules
 /.svelte-kit
 /build
 
+# Local knowledge
+/knowledge.db*
+/multilingual-e5-small/
+
 # OS
 .DS_Store
 Thumbs.db

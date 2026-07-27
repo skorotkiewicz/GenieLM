@@ -14,6 +14,7 @@
 	type Message = { role: 'user' | 'assistant'; content: string; reasoning?: string };
 	type Chat = { id: string; title: string; createdAt: number; messages: Message[] };
 	type HistoryGroup = { label: string; chats: Chat[] };
+	type KnowledgeDocument = { id: number; name: string; createdAt: number; chunks: number };
 	type ProviderSettings = {
 		type: 'compatible' | 'oauth';
 		baseURL: string;
@@ -30,6 +31,10 @@
 	let sidebarOpen = $state(true);
 	let providerOpen = $state(false);
 	let accountOpen = $state(false);
+	let knowledgeOpen = $state(false);
+	let knowledgeBusy = $state(false);
+	let knowledgeDocuments = $state<KnowledgeDocument[]>([]);
+	let knowledgeMessage = $state('');
 	let shareLabel = $state('Share');
 	let copiedMessage = $state<string | null>(null);
 	let speakingMessage = $state<string | null>(null);
@@ -329,6 +334,61 @@
 		await logoutOpenAI();
 		oauthSignedIn = false;
 		authMessage = '';
+	}
+
+	async function loadKnowledge() {
+		try {
+			const response = await fetch('/api/knowledge');
+			const data = await response.json();
+			if (!response.ok || !Array.isArray(data.documents)) throw new Error();
+			knowledgeDocuments = data.documents;
+			knowledgeMessage = '';
+		} catch {
+			knowledgeMessage = 'Could not load the local knowledge store.';
+		}
+	}
+
+	function openKnowledge() {
+		accountOpen = false;
+		knowledgeOpen = true;
+		void loadKnowledge();
+	}
+
+	async function uploadKnowledge(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		knowledgeBusy = true;
+		knowledgeMessage = `Indexing ${file.name}…`;
+		try {
+			const body = new FormData();
+			body.set('file', file);
+			const response = await fetch('/api/knowledge', { method: 'POST', body });
+			const data = await response.json();
+			if (!response.ok) throw new Error(data.error || 'Could not index the document.');
+			await loadKnowledge();
+		} catch (error) {
+			knowledgeMessage = error instanceof Error ? error.message : 'Could not index the document.';
+		} finally {
+			knowledgeBusy = false;
+			input.value = '';
+		}
+	}
+
+	async function removeKnowledge(document: KnowledgeDocument) {
+		if (!confirm(`Delete "${document.name}" from local knowledge?`)) return;
+		knowledgeBusy = true;
+		try {
+			const response = await fetch(`/api/knowledge?id=${document.id}`, { method: 'DELETE' });
+			if (!response.ok) throw new Error();
+			knowledgeDocuments = knowledgeDocuments.filter((item) => item.id !== document.id);
+			knowledgeMessage = '';
+		} catch {
+			knowledgeMessage = 'Could not delete the document.';
+		} finally {
+			knowledgeBusy = false;
+		}
 	}
 
 	async function summarizeTitle(
@@ -700,6 +760,7 @@
 									providerOpen = true;
 								}}>Provider settings</button
 							>
+							<button class="provider-secondary" onclick={openKnowledge}>Knowledge</button>
 							{#if provider.type === 'oauth' && oauthSignedIn}
 								<button class="provider-secondary" onclick={signOutOfChatGPT}>Sign out</button>
 							{/if}
@@ -708,6 +769,61 @@
 				</div>
 			</div>
 		</header>
+
+		{#if knowledgeOpen}
+			<button
+				class="knowledge-backdrop"
+				aria-label="Close knowledge manager"
+				onclick={() => (knowledgeOpen = false)}
+			></button>
+			<div
+				class="knowledge-dialog"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="knowledge-title"
+			>
+				<div class="knowledge-heading">
+					<div>
+						<h2 id="knowledge-title">Local knowledge</h2>
+						<p>Private Markdown and text documents stored on this server.</p>
+					</div>
+					<button aria-label="Close knowledge manager" onclick={() => (knowledgeOpen = false)}
+						>×</button
+					>
+				</div>
+
+				<label class:disabled={knowledgeBusy} class="knowledge-upload">
+					{knowledgeBusy ? 'Indexing…' : 'Add document'}
+					<input
+						type="file"
+						accept=".md,.txt,text/markdown,text/plain"
+						disabled={knowledgeBusy}
+						onchange={uploadKnowledge}
+					/>
+				</label>
+				<small>Maximum 250 KB. Re-uploading the same filename replaces it.</small>
+
+				{#if knowledgeDocuments.length}
+					<ul class="knowledge-list">
+						{#each knowledgeDocuments as document (document.id)}
+							<li>
+								<div><strong>{document.name}</strong><span>{document.chunks} chunks</span></div>
+								<button
+									aria-label={`Delete ${document.name}`}
+									disabled={knowledgeBusy}
+									onclick={() => removeKnowledge(document)}>Delete</button
+								>
+							</li>
+						{/each}
+					</ul>
+				{:else if !knowledgeMessage}
+					<p class="knowledge-empty">No documents indexed yet.</p>
+				{/if}
+				{#if knowledgeMessage}<p class="knowledge-message" aria-live="polite">
+						{knowledgeMessage}
+					</p>{/if}
+			</div>
+		{/if}
 
 		<div class:empty={!activeChat?.messages.length} class="conversation">
 			<div class:empty={!activeChat?.messages.length} class="message-list" bind:this={conversation}>
@@ -1095,6 +1211,119 @@
 	}
 	.provider-note {
 		opacity: 0.72;
+	}
+	.knowledge-backdrop {
+		position: fixed;
+		z-index: 50;
+		inset: 0;
+		border: 0;
+		background: rgb(20 56 64 / 28%);
+	}
+	.knowledge-dialog {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		z-index: 51;
+		width: min(520px, calc(100vw - 32px));
+		max-height: min(650px, calc(100dvh - 32px));
+		overflow-y: auto;
+		padding: 22px;
+		border: 1px solid #bfd8d5;
+		border-radius: 16px;
+		background: #f9fbfa;
+		box-shadow: 0 18px 60px rgb(21 91 109 / 24%);
+		transform: translate(-50%, -50%);
+	}
+	.knowledge-heading {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 20px;
+		margin-bottom: 18px;
+	}
+	.knowledge-heading h2,
+	.knowledge-heading p {
+		margin: 0;
+	}
+	.knowledge-heading h2 {
+		font-size: 18px;
+	}
+	.knowledge-heading p,
+	.knowledge-dialog small {
+		color: #587b82;
+		font-size: 11px;
+	}
+	.knowledge-heading p {
+		margin-top: 4px;
+	}
+	.knowledge-heading button {
+		padding: 0 3px;
+		font-size: 24px;
+		line-height: 1;
+	}
+	.knowledge-upload {
+		display: block;
+		width: 100%;
+		padding: 10px;
+		border-radius: 8px;
+		background: #0da8aa;
+		color: white;
+		font-size: 12px;
+		font-weight: 700;
+		text-align: center;
+		cursor: pointer;
+	}
+	.knowledge-upload.disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+	.knowledge-upload input {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		opacity: 0;
+	}
+	.knowledge-list {
+		display: grid;
+		gap: 7px;
+		margin: 18px 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.knowledge-list li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 10px 12px;
+		border: 1px solid #d5e3e1;
+		border-radius: 8px;
+		background: white;
+	}
+	.knowledge-list strong,
+	.knowledge-list span {
+		display: block;
+	}
+	.knowledge-list strong {
+		font-size: 12px;
+	}
+	.knowledge-list span {
+		margin-top: 2px;
+		color: #6d8588;
+		font-size: 10px;
+	}
+	.knowledge-list button {
+		color: #8d4a30;
+		font-size: 11px;
+	}
+	.knowledge-empty,
+	.knowledge-message {
+		margin: 18px 0 0;
+		font-size: 12px;
+	}
+	.knowledge-message {
+		color: #8d4a30;
 	}
 	.account-actions {
 		display: flex;
