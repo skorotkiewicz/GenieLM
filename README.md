@@ -43,7 +43,7 @@ The code tool runs Python, JavaScript, and shell snippets without network access
 
 ### Local knowledge
 
-Place the [Xenova multilingual E5 model](https://huggingface.co/Xenova/multilingual-e5-small) in `multilingual-e5-small/`, including `onnx/model_quantized.onnx`. Open **Account → Knowledge** to index `.md` and `.txt` files. The model can also save a `[Memory]` document when you explicitly ask it to remember something. Documents, memories, chunks, and embeddings stay in the ignored local `knowledge.db` file.
+Place the [Xenova multilingual E5 model](https://huggingface.co/Xenova/multilingual-e5-small) in `multilingual-e5-small/`, including `onnx/model_quantized.onnx`. Open **Account → Knowledge** to index `.md` and `.txt` files. The model can also save, update, or forget a `[Memory]` document when you explicitly ask it to. Documents, memories, chunks, and embeddings stay in the ignored local `knowledge.db` file.
 
 Before you send your first message, open the GenieLM menu in the header.
 

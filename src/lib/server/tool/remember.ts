@@ -1,7 +1,12 @@
-import { addKnowledgeDocument } from '$lib/server/knowledge';
+import {
+	addKnowledgeDocument,
+	deleteKnowledgeDocument,
+	listKnowledgeDocuments
+} from '$lib/server/knowledge';
 import { jsonSchema, tool } from 'ai';
 
 type RememberInput = { title: string; content: string };
+type ForgetMemoryInput = { title: string };
 
 export function memoryDocumentName(title: string) {
 	const cleanTitle = title
@@ -32,6 +37,24 @@ export async function saveMemory(title: unknown, content: unknown) {
 	}
 }
 
+export function forgetSavedMemory(title: unknown) {
+	const cleanTitle = typeof title === 'string' ? title.trim() : '';
+	const name = memoryDocumentName(cleanTitle);
+	if (!name || cleanTitle.length > 100) {
+		return 'Error: Memory title must be 1-100 characters.';
+	}
+
+	try {
+		const document = listKnowledgeDocuments().find((item) => item.name === name);
+		if (!document) return `No memory found with title "${cleanTitle}".`;
+		return deleteKnowledgeDocument(document.id)
+			? `Forgot ${name}.`
+			: 'Error: Could not delete the memory.';
+	} catch {
+		return 'Error: Could not access local memory.';
+	}
+}
+
 export const remember = tool({
 	description:
 		"Save information to the user's private local memory. Call only when the current user explicitly asks you to remember or save something. Reusing a title updates that memory.",
@@ -45,4 +68,16 @@ export const remember = tool({
 		additionalProperties: false
 	}),
 	execute: ({ title, content }) => saveMemory(title, content)
+});
+
+export const forgetMemory = tool({
+	description:
+		'Delete one saved memory by its exact title. Call only when the current user explicitly asks you to forget or remove that memory. This cannot delete uploaded documents.',
+	inputSchema: jsonSchema<ForgetMemoryInput>({
+		type: 'object',
+		properties: { title: { type: 'string', minLength: 1, maxLength: 100 } },
+		required: ['title'],
+		additionalProperties: false
+	}),
+	execute: ({ title }) => forgetSavedMemory(title)
 });
