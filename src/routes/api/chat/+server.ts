@@ -1,6 +1,8 @@
 import { createChatStreamResponse } from '$lib/chat-stream';
 import { modelForRequest } from '$lib/server/provider';
-import { convertToModelMessages, streamText, type UIMessage } from 'ai';
+import { getWeather } from '$lib/server/tool/weather';
+import { webSearch } from '$lib/server/tool/web-search';
+import { convertToModelMessages, isStepCount, streamText, type UIMessage } from 'ai';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -39,8 +41,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		const result = streamText({
 			model,
 			abortSignal: request.signal,
-			system: 'You are GenieLM, a helpful and concise assistant.',
+			system:
+				'You are GenieLM, a helpful and concise assistant. Use webSearch when current web information would improve the answer, and cite the result URLs you use.',
 			messages: await convertToModelMessages(messages),
+			tools: { webSearch, getWeather },
+			stopWhen: isStepCount(3),
 			stopSequences: ['<|im_end|>', '<|eot_id|>', '<|end|>', '</s>']
 		});
 
